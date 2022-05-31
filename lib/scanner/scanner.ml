@@ -1,3 +1,5 @@
+(* TODO(dlsmith): Add line context when returning `Error`s*)
+
 type position = {
     start: int;
     current: int;
