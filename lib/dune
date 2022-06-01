@@ -4,14 +4,7 @@
  (libraries interpreter))
 
 (library
- (name literal)
- (modules literal)
- (preprocess
-   (pps ppx_deriving.show ppx_deriving.eq)))
-
-(library
  (name token)
  (modules token)
- (libraries literal)
  (preprocess
    (pps ppx_deriving.show ppx_deriving.eq)))

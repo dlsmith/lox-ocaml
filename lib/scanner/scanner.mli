@@ -21,7 +21,7 @@ val init : unit -> position
 val scan_token :
     string -> position -> (Token.token_type, string) result * position
 
-val extract_token :
+val create_token :
     string -> position -> Token.token_type -> (Token.token, string) result
 
 val update_start : position -> position

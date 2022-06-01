@@ -24,8 +24,8 @@ type token_type =
 
     (* Literals. *)
     | Identifier
-    | String
-    | Number
+    | String of string
+    | Number of float
 
     (* Keywords. *)
     | And
@@ -48,10 +48,12 @@ type token_type =
     | EOF
 [@@deriving show, eq]
 
+(* TODO(dlsmith): Consider renaming this. This is really wrapping the context
+   around a token, where `token_type` is a better encapsulation of a token.
+   *)
 type token = {
     token_type: token_type;
     lexeme: string;
-    literal: Literal.literal option;
     line: int;
 } [@@deriving show, eq]
 

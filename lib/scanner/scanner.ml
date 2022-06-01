@@ -38,13 +38,13 @@ let substring s start_index end_index =
 let parse_string_literal source pos =
     let str = substring source (pos.start + 1) (pos.current - 1) in
     (* TODO(dlsmith): Handle index error *)
-    Ok (Literal.String str)
+    Ok str
 
 let parse_number_literal source pos =
     let number_str = substring source pos.start pos.current in
     match Float.of_string number_str with
     | exception Failure _ -> Error "Failed to parse number."
-    | number -> Ok (Literal.Number number)
+    | number -> Ok number
 
 (* TODO(dlsmith): There's something less than ideal here in that you can
  pass arguments that are inconsistent. E.g., pass a one-character token type
@@ -59,23 +59,13 @@ let parse_number_literal source pos =
  logic. This isn't a huge burden, but it's a nice API that says, "just give
  me the next token and tell me where you left off."
 *)
-let extract_token source pos token_type = 
-    (* TODO(dlsmith): Handle error cases, OOB, etc. *)
-    let base_token = Token.{
+let create_token source pos token_type =
+    Ok Token.{
         token_type=token_type;
+        (* TODO(dlsmith): Handle error cases, OOB, etc. *)
         lexeme=substring source pos.start pos.current;
-        literal=None;
         line=pos.line
-    } in
-    let attach_literal literal_result =
-        match literal_result with
-        | Ok literal -> Ok Token.{base_token with literal=Some literal}
-        | Error message -> Error message
-    in
-    match token_type with
-    | Token.String -> attach_literal (parse_string_literal source pos)
-    | Token.Number -> attach_literal (parse_number_literal source pos)
-    | _ -> Ok base_token
+    }
 
 let rec ignore_line source pos =
     let c, pos = advance source pos in
@@ -176,12 +166,21 @@ let rec scan_token source pos =
         (* String literal *)
         | '"' ->
             begin match scan_string_token source pos with
-            | ValidString pos -> Ok Token.String, pos
+            | ValidString pos ->
+                begin match parse_string_literal source pos with
+                    | Ok str -> Ok (Token.String str), pos
+                    | Error message -> Error message, pos
+                end
             | InvalidString (pos, message) -> Error message, pos
             end
 
         (* Number literal *)
-        | c when is_digit c -> Ok Token.Number, (scan_number_token source pos)
+        | c when is_digit c ->
+            let pos = scan_number_token source pos in
+            begin match parse_number_literal source pos with
+            | Ok num -> Ok (Token.Number num), pos
+            | Error message -> Error message, pos
+            end
 
         (* Identifier *)
         | c when is_alpha c ->
@@ -201,7 +200,7 @@ let scan_and_extract_token source pos =
     let token_type_result, pos = scan_token source pos in
     let token_result =
         match token_type_result with
-        | Ok token_type -> extract_token source pos token_type
+        | Ok token_type -> create_token source pos token_type
         | Error message -> Error message
     in
     token_result, update_start pos
