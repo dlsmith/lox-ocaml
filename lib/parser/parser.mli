@@ -32,12 +32,18 @@ val print_ast : expression -> string
 
 exception Parse_error of string
 
+type token_list = Token.token list
+
+type partial_parse = expression * token_list
+
+type expression_parser = token_list -> partial_parse
+
 (* TODO(dlsmith): I don't actually want to expose this from the module, but
    for now I want to keep the signature explicit. *)
 val parse_left_assoc_binary_ops :
-    subparser:(Token.token list -> expression * (Token.token list)) ->
+    subparser:expression_parser ->
         (Token.token_type -> binary_op option) ->
-            Token.token list ->
-                expression * (Token.token list)
+            token_list ->
+                partial_parse
 
-val parse_expression : Token.token list -> expression * (Token.token list)
+val parse_expression : expression_parser

@@ -69,6 +69,12 @@ let rec print_ast expression =
 
 exception Parse_error of string
 
+type token_list = Token.token list
+
+type partial_parse = expression * token_list
+
+type expression_parser = token_list -> partial_parse
+
 let head l =
     match l with
     | [] -> None
