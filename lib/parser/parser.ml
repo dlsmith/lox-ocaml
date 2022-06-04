@@ -94,17 +94,22 @@ let uncons l =
 let get_token_type token =
     Token.(token.token_type)
 
-let (>>=) = Result.bind
+let (let*) = Result.bind
 
 let rec parse_left_assoc_binary_ops ~subparser match_op tokens =
-    subparser tokens >>= fun (expr, tokens) ->
-        let op = Option.bind (head tokens) (fun token ->
-            token |> get_token_type |> match_op) in
-        match op with
-        | None -> Ok (expr, tokens)
-        | Some op ->
-            parse_left_assoc_binary_ops ~subparser match_op (tail tokens)
-            >>= fun (right, tokens) -> Ok (Binary (op, expr, right), tokens)
+    let* expr, tokens = subparser tokens in
+    let op = Option.bind (head tokens) (fun token ->
+        token |> get_token_type |> match_op) in
+    match op with
+    | None -> Ok (expr, tokens)
+    | Some op ->
+        let* right, tokens =
+            parse_left_assoc_binary_ops
+                ~subparser
+                match_op
+                (tail tokens)
+        in
+        Ok (Binary (op, expr, right), tokens)
 
 (* primary ->
     NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ; *)
@@ -118,12 +123,11 @@ let rec parse_primary tokens =
     | Some Token.String str  -> Ok (Literal (String str), tokens)
     | Some Token.LeftParen ->
         begin
-            parse_expression tokens
-            >>= fun (expr, tokens) ->
-                let token, tokens = uncons tokens in
-                match Option.map get_token_type token with
-                | Some Token.RightParen -> Ok (Grouping expr, tokens)
-                | _ -> Error ("Expect ')' after expression.", tokens)
+            let* expr, tokens = parse_expression tokens in
+            let token, tokens = uncons tokens in
+            match Option.map get_token_type token with
+            | Some Token.RightParen -> Ok (Grouping expr, tokens)
+            | _ -> Error ("Expect ')' after expression.", tokens)
         end
     | _ -> Error ("Expect expression.", tokens)
 
@@ -138,8 +142,8 @@ and parse_unary tokens =
     match op with
     | None -> parse_primary tokens
     | Some op ->
-        parse_unary (tail tokens)
-        >>= fun (right, tokens) -> Ok (Unary (op, right), tokens)
+        let* right, tokens = parse_unary (tail tokens) in
+        Ok (Unary (op, right), tokens)
 
 (* factor -> unary ( ( "/" | "*" ) unary )* ; *)
 and parse_factor tokens =
