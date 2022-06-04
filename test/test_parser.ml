@@ -22,6 +22,10 @@ let test_print_ast () =
         expected
         (Parser.print_ast ast)
 
+(* TODO(dlsmith): Check all tokens consumed in parser tests below. Might be
+ easiest to do this within a helper method, since the tests have a pretty
+ common shape. *)
+
 let test_arithmetic_precedence () =
     let open Token in
     let tokens = [
@@ -31,7 +35,6 @@ let test_arithmetic_precedence () =
         { token_type=Star; lexeme="*"; line=0; };
         { token_type=Number 3.; lexeme="3.0"; line=0; };
     ] in
-    (* TODO(dlsmith): Check all tokens consumed. *)
     let expr, _ = Parser.parse_expression tokens in
     let expected_sexp = "(+ 1. (* 2. 3.))" in
     Alcotest.(check string)
@@ -55,13 +58,38 @@ let test_unary_binary_grouping () =
         { token_type=EqualEqual; lexeme="=="; line=0; };
         { token_type=True; lexeme="true"; line=0; };
     ] in
-    (* TODO(dlsmith): Check all tokens consumed. *)
     let expr, _ = Parser.parse_expression tokens in
     let expected_sexp = "(== (< (* (group (+ 1. 2.)) (- 3.)) 0.) true)" in
     Alcotest.(check string)
         "Same string"
         expected_sexp
         (Parser.print_ast expr)
+
+let test_unclosed_grouping () =
+    let open Token in
+    let tokens = [
+        { token_type=Number 1.; lexeme="1.0"; line=0; };
+        { token_type=Plus; lexeme="+"; line=0; };
+        { token_type=LeftParen; lexeme="("; line=0; };
+        { token_type=Number 2.; lexeme="2.0"; line=0; };
+        { token_type=Star; lexeme="*"; line=0; };
+        { token_type=Number 3.; lexeme="3.0"; line=0; };
+    ] in
+    Alcotest.check_raises
+        "Parse error"
+        (Parser.Parse_error "Expect ')' after expression.")
+        (fun () -> let _ = Parser.parse_expression tokens in ())
+
+let test_partial_binary_expression () =
+    let open Token in
+    let tokens = [
+        { token_type=Number 1.; lexeme="1.0"; line=0; };
+        { token_type=Plus; lexeme="+"; line=0; };
+    ] in
+    Alcotest.check_raises
+        "Parse error"
+        (Parser.Parse_error "Expect expression.")
+        (fun () -> let _ = Parser.parse_expression tokens in ())
 
 let () =
     Alcotest.run "Parser test suite"
@@ -81,5 +109,15 @@ let () =
                 "Expression with unary, binary, and grouping"
                 `Quick
                 test_unary_binary_grouping;
+            ]);
+            ("Parse failure", [
+                Alcotest.test_case
+                "Unclosed grouping"
+                `Quick
+                test_unclosed_grouping;
+                Alcotest.test_case
+                "Partial binary expression"
+                `Quick
+                test_partial_binary_expression;
             ]);
         ]

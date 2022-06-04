@@ -30,6 +30,8 @@ type expression =
 (** Serialize an `expression` AST as an s-expression string. *)
 val print_ast : expression -> string
 
+exception Parse_error of string
+
 (* TODO(dlsmith): I don't actually want to expose this from the module, but
    for now I want to keep the signature explicit. *)
 val parse_left_assoc_binary_ops :

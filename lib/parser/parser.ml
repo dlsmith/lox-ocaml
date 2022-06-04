@@ -65,23 +65,36 @@ let rec print_ast expression =
     | Grouping subexpr ->
         Printf.sprintf "(group %s)" (print_ast subexpr)
 
-(* TODO(dlsmith): Error handling
-    - Use of `List.hd` and `List.tl` to consume a token needs to include
-      error handling.
-    - Use of exceptions to handle errors should ideally be converted to
-      use of `result` type.
- *)
+(* TODO(dlsmith): Change use of exceptions to Result *)
 
 exception Parse_error of string
 
-let uncons tokens =
-    List.hd tokens, List.tl tokens
+let head l =
+    match l with
+    | [] -> None
+    | [x] -> Some x
+    | x::_ -> Some x
+
+let tail l =
+    match l with
+    | [] -> []
+    | [_] -> []
+    | _::xs -> xs
+
+let uncons l =
+    match l with
+    | [] -> None, []
+    | [x] -> Some x, []
+    | x::xs -> Some x, xs
+
+let get_token_type token =
+    Token.(token.token_type)
 
 let rec parse_left_assoc_binary_ops ~subparser match_op tokens =
     let expr, tokens = subparser tokens in
-    let op = match List.hd tokens with
-    | token -> match_op Token.(token.token_type)
-    | exception Failure _ -> None
+    let op = match head tokens with
+    | None -> None
+    | Some token -> token |> get_token_type |> match_op
     in
     match op with
     | None -> expr, tokens
@@ -90,7 +103,7 @@ let rec parse_left_assoc_binary_ops ~subparser match_op tokens =
             parse_left_assoc_binary_ops
                 ~subparser
                 match_op
-                (List.tl tokens)
+                (tail tokens)
         in
         Binary (op, expr, right), tokens
 
@@ -98,33 +111,33 @@ let rec parse_left_assoc_binary_ops ~subparser match_op tokens =
     NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ; *)
 let rec parse_primary tokens =
     let token, tokens = uncons tokens in
-    match Token.(token.token_type) with
-    | Token.False -> Literal False, tokens
-    | Token.True -> Literal True, tokens
-    | Token.Nil -> Literal Nil, tokens
-    | Token.Number num -> Literal (Number num), tokens
-    | Token.String str  -> Literal (String str), tokens
-    | Token.LeftParen ->
+    match Option.map get_token_type token with
+    | Some Token.False -> Literal False, tokens
+    | Some Token.True -> Literal True, tokens
+    | Some Token.Nil -> Literal Nil, tokens
+    | Some Token.Number num -> Literal (Number num), tokens
+    | Some Token.String str  -> Literal (String str), tokens
+    | Some Token.LeftParen ->
         begin let expr, tokens = parse_expression tokens in
             let token, tokens = uncons tokens in
-            match Token.(token.token_type) with
-            | Token.RightParen -> Grouping expr, tokens
+            match Option.map get_token_type token with
+            | Some Token.RightParen -> Grouping expr, tokens
             | _ -> raise (Parse_error "Expect ')' after expression.")
         end
     | _ -> raise (Parse_error "Expect expression.")
 
 (* unary -> ( "!" | "-" ) unary | primary ; *)
 and parse_unary tokens =
-    let token = List.hd tokens in
-    let op = match Token.(token.token_type) with
-    | Token.Bang -> Some LogicalNot
-    | Token.Minus -> Some Negate
+    let token = head tokens in
+    let op = match Option.map get_token_type token with
+    | Some Token.Bang -> Some LogicalNot
+    | Some Token.Minus -> Some Negate
     | _ -> None
     in
     match op with
     | None -> parse_primary tokens
     | Some op ->
-        let right, tokens = parse_unary (List.tl tokens) in
+        let right, tokens = parse_unary (tail tokens) in
         Unary (op, right), tokens
 
 (* factor -> unary ( ( "/" | "*" ) unary )* ; *)
