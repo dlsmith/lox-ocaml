@@ -1,4 +1,4 @@
-let test_print_ast () =
+let test_to_sexp () =
     let expected = "(== (> 1.2 (- (group (+ 5. 2.)))) true)" in
     let ast =
         let open Parser in
@@ -20,7 +20,7 @@ let test_print_ast () =
     Alcotest.(check string)
         "Same string"
         expected
-        (Parser.print_ast ast)
+        (Parser.to_sexp ast)
 
 let check_parse tokens ~ok ~error =
     let partial_parse = Parser.parse_expression tokens in
@@ -50,7 +50,7 @@ let check_parse_ok tokens expected_sexp =
             Alcotest.(check string)
                 "Same s-exp"
                 expected_sexp
-                (Parser.print_ast expr)
+                (Parser.to_sexp expr)
         )
         ~error:(fun _ -> Alcotest.fail "Expected parse ok")
 
@@ -110,7 +110,7 @@ let () =
                 Alcotest.test_case
                 "Print AST"
                 `Quick
-                test_print_ast;
+                test_to_sexp;
             ]);
             ("Parse expression", [
                 Alcotest.test_case

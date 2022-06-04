@@ -27,7 +27,7 @@ type expression =
     | Binary of binary_op * expression * expression
     | Grouping of expression
 
-let rec print_ast expression =
+let rec to_sexp expression =
     match expression with
     | Literal literal ->
         begin
@@ -43,7 +43,7 @@ let rec print_ast expression =
         | Negate -> "-"
         | LogicalNot -> "!"
         in
-        Printf.sprintf "(%s %s)" op_str (print_ast subexpr)
+        Printf.sprintf "(%s %s)" op_str (to_sexp subexpr)
     | Binary (op, subexpr1, subexpr2) ->
         let op_str = match op with
         | EqualEqual -> "=="
@@ -60,10 +60,10 @@ let rec print_ast expression =
         Printf.sprintf
             "(%s %s %s)"
             op_str
-            (print_ast subexpr1)
-            (print_ast subexpr2)
+            (to_sexp subexpr1)
+            (to_sexp subexpr2)
     | Grouping subexpr ->
-        Printf.sprintf "(group %s)" (print_ast subexpr)
+        Printf.sprintf "(group %s)" (to_sexp subexpr)
 
 exception Parse_error of string
 

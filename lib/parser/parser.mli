@@ -27,8 +27,8 @@ type expression =
     | Binary of binary_op * expression * expression
     | Grouping of expression
 
-(** Serialize an `expression` AST as an s-expression string. *)
-val print_ast : expression -> string
+(** Serialize an `expression` AST as an s-expression. *)
+val to_sexp : expression -> string
 
 exception Parse_error of string
 
