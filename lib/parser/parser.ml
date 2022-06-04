@@ -65,13 +65,11 @@ let rec print_ast expression =
     | Grouping subexpr ->
         Printf.sprintf "(group %s)" (print_ast subexpr)
 
-(* TODO(dlsmith): Change use of exceptions to Result *)
-
 exception Parse_error of string
 
 type token_list = Token.token list
 
-type partial_parse = expression * token_list
+type partial_parse = (expression * token_list, string * token_list) result
 
 type expression_parser = token_list -> partial_parse
 
@@ -96,41 +94,38 @@ let uncons l =
 let get_token_type token =
     Token.(token.token_type)
 
+let (>>=) = Result.bind
+
 let rec parse_left_assoc_binary_ops ~subparser match_op tokens =
-    let expr, tokens = subparser tokens in
-    let op = match head tokens with
-    | None -> None
-    | Some token -> token |> get_token_type |> match_op
-    in
-    match op with
-    | None -> expr, tokens
-    | Some op ->
-        let right, tokens =
-            parse_left_assoc_binary_ops
-                ~subparser
-                match_op
-                (tail tokens)
-        in
-        Binary (op, expr, right), tokens
+    subparser tokens >>= fun (expr, tokens) ->
+        let op = Option.bind (head tokens) (fun token ->
+            token |> get_token_type |> match_op) in
+        match op with
+        | None -> Ok (expr, tokens)
+        | Some op ->
+            parse_left_assoc_binary_ops ~subparser match_op (tail tokens)
+            >>= fun (right, tokens) -> Ok (Binary (op, expr, right), tokens)
 
 (* primary ->
     NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ; *)
 let rec parse_primary tokens =
     let token, tokens = uncons tokens in
     match Option.map get_token_type token with
-    | Some Token.False -> Literal False, tokens
-    | Some Token.True -> Literal True, tokens
-    | Some Token.Nil -> Literal Nil, tokens
-    | Some Token.Number num -> Literal (Number num), tokens
-    | Some Token.String str  -> Literal (String str), tokens
+    | Some Token.False -> Ok (Literal False, tokens)
+    | Some Token.True -> Ok (Literal True, tokens)
+    | Some Token.Nil -> Ok (Literal Nil, tokens)
+    | Some Token.Number num -> Ok (Literal (Number num), tokens)
+    | Some Token.String str  -> Ok (Literal (String str), tokens)
     | Some Token.LeftParen ->
-        begin let expr, tokens = parse_expression tokens in
-            let token, tokens = uncons tokens in
-            match Option.map get_token_type token with
-            | Some Token.RightParen -> Grouping expr, tokens
-            | _ -> raise (Parse_error "Expect ')' after expression.")
+        begin
+            parse_expression tokens
+            >>= fun (expr, tokens) ->
+                let token, tokens = uncons tokens in
+                match Option.map get_token_type token with
+                | Some Token.RightParen -> Ok (Grouping expr, tokens)
+                | _ -> Error ("Expect ')' after expression.", tokens)
         end
-    | _ -> raise (Parse_error "Expect expression.")
+    | _ -> Error ("Expect expression.", tokens)
 
 (* unary -> ( "!" | "-" ) unary | primary ; *)
 and parse_unary tokens =
@@ -143,8 +138,8 @@ and parse_unary tokens =
     match op with
     | None -> parse_primary tokens
     | Some op ->
-        let right, tokens = parse_unary (tail tokens) in
-        Unary (op, right), tokens
+        parse_unary (tail tokens)
+        >>= fun (right, tokens) -> Ok (Unary (op, right), tokens)
 
 (* factor -> unary ( ( "/" | "*" ) unary )* ; *)
 and parse_factor tokens =

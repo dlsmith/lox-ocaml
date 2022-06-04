@@ -22,9 +22,37 @@ let test_print_ast () =
         expected
         (Parser.print_ast ast)
 
-(* TODO(dlsmith): Check all tokens consumed in parser tests below. Might be
- easiest to do this within a helper method, since the tests have a pretty
- common shape. *)
+let check_parse tokens ~ok ~error =
+    let partial_parse = Parser.parse_expression tokens in
+    match partial_parse with
+    | Ok (expr, tokens) -> ok (expr, tokens)
+    | Error (message, tokens) -> error (message, tokens)
+
+let check_parse_error tokens expected_message =
+    check_parse
+        tokens
+        ~ok:(fun _ -> Alcotest.fail "Expected parse error")
+        ~error:(fun (message, _) ->
+            Alcotest.(check string)
+            "Same error"
+            expected_message
+            message
+        )
+
+let check_parse_ok tokens expected_sexp =
+    check_parse
+        tokens
+        ~ok:(fun (expr, tokens) ->
+            Alcotest.(check int)
+                "No tokens remaining"
+                0
+                (List.length tokens);
+            Alcotest.(check string)
+                "Same s-exp"
+                expected_sexp
+                (Parser.print_ast expr)
+        )
+        ~error:(fun _ -> Alcotest.fail "Expected parse ok")
 
 let test_arithmetic_precedence () =
     let open Token in
@@ -35,12 +63,7 @@ let test_arithmetic_precedence () =
         { token_type=Star; lexeme="*"; line=0; };
         { token_type=Number 3.; lexeme="3.0"; line=0; };
     ] in
-    let expr, _ = Parser.parse_expression tokens in
-    let expected_sexp = "(+ 1. (* 2. 3.))" in
-    Alcotest.(check string)
-        "Same string"
-        expected_sexp
-        (Parser.print_ast expr)
+    check_parse_ok tokens "(+ 1. (* 2. 3.))"
 
 let test_unary_binary_grouping () =
     let open Token in
@@ -58,12 +81,7 @@ let test_unary_binary_grouping () =
         { token_type=EqualEqual; lexeme="=="; line=0; };
         { token_type=True; lexeme="true"; line=0; };
     ] in
-    let expr, _ = Parser.parse_expression tokens in
-    let expected_sexp = "(== (< (* (group (+ 1. 2.)) (- 3.)) 0.) true)" in
-    Alcotest.(check string)
-        "Same string"
-        expected_sexp
-        (Parser.print_ast expr)
+    check_parse_ok tokens "(== (< (* (group (+ 1. 2.)) (- 3.)) 0.) true)"
 
 let test_unclosed_grouping () =
     let open Token in
@@ -75,10 +93,7 @@ let test_unclosed_grouping () =
         { token_type=Star; lexeme="*"; line=0; };
         { token_type=Number 3.; lexeme="3.0"; line=0; };
     ] in
-    Alcotest.check_raises
-        "Parse error"
-        (Parser.Parse_error "Expect ')' after expression.")
-        (fun () -> let _ = Parser.parse_expression tokens in ())
+    check_parse_error tokens "Expect ')' after expression."
 
 let test_partial_binary_expression () =
     let open Token in
@@ -86,10 +101,7 @@ let test_partial_binary_expression () =
         { token_type=Number 1.; lexeme="1.0"; line=0; };
         { token_type=Plus; lexeme="+"; line=0; };
     ] in
-    Alcotest.check_raises
-        "Parse error"
-        (Parser.Parse_error "Expect expression.")
-        (fun () -> let _ = Parser.parse_expression tokens in ())
+    check_parse_error tokens "Expect expression."
 
 let () =
     Alcotest.run "Parser test suite"
