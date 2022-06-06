@@ -1,5 +1,7 @@
 (* TODO(dlsmith): Add line context when returning `Error`s*)
 
+let (let*) = Result.bind
+
 type position = {
     start: int;
     current: int;
@@ -33,11 +35,11 @@ let advance source pos =
 
 let substring s start_index end_index =
     let len = end_index - start_index in
+    (* TODO(dlsmith): Catch Invalid_argument exception and return `result` *)
     String.sub s start_index len
 
 let parse_string_literal source pos =
     let str = substring source (pos.start + 1) (pos.current - 1) in
-    (* TODO(dlsmith): Handle index error *)
     Ok str
 
 let parse_number_literal source pos =
@@ -62,7 +64,6 @@ let parse_number_literal source pos =
 let create_token source pos token_type =
     Ok Token.{
         token_type=token_type;
-        (* TODO(dlsmith): Handle error cases, OOB, etc. *)
         lexeme=substring source pos.start pos.current;
         line=pos.line
     }
@@ -74,16 +75,12 @@ let rec ignore_line source pos =
     | None -> update_start pos
     | _ -> ignore_line source pos
 
-type scan_string_result =
-    | ValidString of position
-    | InvalidString of position * string
-
 let rec scan_string_token source pos =
     match peek source pos with
-    | None -> InvalidString (pos, "Unterminated string.")
-    | Some '"' -> ValidString (inc_current pos)
+    | None -> Error ("Unterminated string.", pos)
+    | Some '"' -> Ok (pos |> inc_current)
     | Some '\n' -> scan_string_token source (pos |> inc_current |> inc_line)
-    | _ -> scan_string_token source (inc_current pos)
+    | _ -> scan_string_token source (pos |> inc_current)
 
 let is_digit c =
     let c_code = Char.code c in
@@ -108,7 +105,7 @@ let scan_number_token source pos =
     match peek source pos with
     (* We're diverging from the spec here by allowing `12.` for `12.0`. We may
        need to revise this later. *)
-    | Some '.' -> scan_digit_string source (inc_current pos)
+    | Some '.' -> scan_digit_string source (pos |> inc_current)
     | _ -> pos
 
 let rec scan_identifier_token source pos =
@@ -119,96 +116,95 @@ let rec scan_identifier_token source pos =
 
 let match_next source pos c then_type else_type =
     match peek source pos with
-    | Some test_c when test_c = c -> Ok then_type, (inc_current pos)
-    | _ -> Ok else_type, pos
+    | Some test_c when test_c = c -> then_type, inc_current pos
+    | _ -> else_type, pos
+
+let result_attach b r =
+    match r with
+    | Ok a -> Ok (a, b)
+    | Error e -> Error (e, b)
 
 let rec scan_token source pos =
     let c, pos = advance source pos in
     match c with
-    (* No more characters to process *)
-    | None -> Ok Token.EOF, pos
-    | Some c ->
-        (* TODO(dlsmith): Best practices for "early return"? *)
-        match c with
-        (* Whitespace *)
-        | ' '  | '\r' | '\t' -> scan_token source (update_start pos)
-        | '\n' -> scan_token source (pos |> inc_line |> update_start)
+    | None -> Ok (Token.EOF, pos)
+    | Some c -> consume_char c source pos
 
-        (* Single character tokens *)
-        | '(' -> Ok Token.LeftParen, pos
-        | ')' -> Ok Token.RightParen, pos
-        | '{' -> Ok Token.LeftBrace, pos
-        | '}' -> Ok Token.RightBrace, pos
-        | ',' -> Ok Token.Comma, pos
-        | '.' -> Ok Token.Dot, pos
-        | '-' -> Ok Token.Minus, pos
-        | '+' -> Ok Token.Plus, pos
-        | ';' -> Ok Token.Semicolon, pos
-        | '*' -> Ok Token.Star, pos
+and consume_char c source pos =
+    match c with
+    (* Whitespace *)
+    | ' '  | '\r' | '\t' -> scan_token source (pos |> update_start)
+    | '\n' -> scan_token source (pos |> inc_line |> update_start)
 
-        (* Two character operators *)
-        (* TODO(dlsmith): It's a little weird we're wrapping as a result in
-        some cases but not in others (i.e., here), where it's handled by a
-        helper. *)
-        | '!' -> match_next source pos '=' Token.BangEqual Token.Bang
-        | '=' -> match_next source pos '=' Token.EqualEqual Token.Equal
-        | '<' -> match_next source pos '=' Token.LessEqual Token.Less
-        | '>' -> match_next source pos '=' Token.GreaterEqual Token.Greater
+    (* Single character tokens *)
+    | '(' -> Ok (Token.LeftParen, pos)
+    | ')' -> Ok (Token.RightParen, pos)
+    | '{' -> Ok (Token.LeftBrace, pos)
+    | '}' -> Ok (Token.RightBrace, pos)
+    | ',' -> Ok (Token.Comma, pos)
+    | '.' -> Ok (Token.Dot, pos)
+    | '-' -> Ok (Token.Minus, pos)
+    | '+' -> Ok (Token.Plus, pos)
+    | ';' -> Ok (Token.Semicolon, pos)
+    | '*' -> Ok (Token.Star, pos)
 
-        (* Comment *)
-        | '/' ->
-            begin match peek source pos with
-            (* If comment, resume scanning after end of line *)
-            | Some '/' -> scan_token source (ignore_line source pos)
-            | _ -> Ok Token.Slash, pos
-            end
+    (* Two character operators *)
+    | '!' -> Ok (match_next source pos '=' Token.BangEqual Token.Bang)
+    | '=' -> Ok (match_next source pos '=' Token.EqualEqual Token.Equal)
+    | '<' -> Ok (match_next source pos '=' Token.LessEqual Token.Less)
+    | '>' -> Ok (match_next source pos '=' Token.GreaterEqual Token.Greater)
 
-        (* String literal *)
-        | '"' ->
-            begin match scan_string_token source pos with
-            | ValidString pos ->
-                begin match parse_string_literal source pos with
-                    | Ok str -> Ok (Token.String str), pos
-                    | Error message -> Error message, pos
-                end
-            | InvalidString (pos, message) -> Error message, pos
-            end
+    (* Comment *)
+    | '/' ->
+        begin match peek source pos with
+        (* If comment, resume scanning after end of line *)
+        | Some '/' -> scan_token source (ignore_line source pos)
+        | _ -> Ok (Token.Slash, pos)
+        end
 
-        (* Number literal *)
-        | c when is_digit c ->
-            let pos = scan_number_token source pos in
-            begin match parse_number_literal source pos with
-            | Ok num -> Ok (Token.Number num), pos
-            | Error message -> Error message, pos
-            end
+    (* String literal *)
+    | '"' ->
+        let* pos = scan_string_token source pos in
+        parse_string_literal source pos
+        |> Result.map (fun str -> Token.String str)
+        |> result_attach pos
 
-        (* Identifier *)
-        | c when is_alpha c ->
-            let pos = scan_identifier_token source pos in
-            let lexeme = substring source pos.start pos.current in
-            let token_type =
-                match Token.as_keyword lexeme with
-                | Some keyword_type -> keyword_type
-                | None -> Token.Identifier
-            in
-            Ok token_type, pos
+    (* Number literal *)
+    | c when is_digit c -> 
+        let pos = scan_number_token source pos in
+        parse_number_literal source pos
+        |> Result.map (fun num -> Token.Number num)
+        |> result_attach pos
 
-        (* Failure *)
-        | _ -> Error "Unexpected character.", pos
+    (* Identifier *)
+    | c when is_alpha c ->
+        let pos = scan_identifier_token source pos in
+        substring source pos.start pos.current
+        |> Token.as_keyword
+        |> Option.value ~default:Token.Identifier
+        |> Result.ok
+        |> result_attach pos
+
+    (* Failure *)
+    | _ -> Error ("Unexpected character.", pos)
 
 let scan_and_extract_token source pos =
-    let token_type_result, pos = scan_token source pos in
-    let token_result =
-        match token_type_result with
-        | Ok token_type -> create_token source pos token_type
-        | Error message -> Error message
+    let token_type_result, pos =
+        match scan_token source pos with
+        | Ok (token_type, pos) -> Ok token_type, pos
+        | Error (message, pos) -> Error message, pos
     in
-    token_result, update_start pos
+    token_type_result
+    |> Result.map (create_token source pos)
+    |> Result.join
+    |> result_attach (update_start pos)
 
 let rec scan_tokens source ?(pos=init()) =
-    let token_result, pos = scan_and_extract_token source pos in
-    match token_result with
-    | Ok { token_type=Token.EOF; _ } ->
-        Seq.return token_result
-    | _ ->
-        Seq.cons token_result (scan_tokens source ~pos)
+    match scan_and_extract_token source pos with
+    | Ok (token, pos) ->
+        begin match token.token_type with
+        | Token.EOF -> Seq.return (Ok token)
+        | _ -> Seq.cons (Ok token) (scan_tokens source ~pos)
+        end
+    | Error (message, pos) ->
+        Seq.cons (Error message) (scan_tokens source ~pos)

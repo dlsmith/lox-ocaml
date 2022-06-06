@@ -12,18 +12,20 @@ let token_result_list_testable =
 
 exception Scanner_error of string
 
-let unpack_scanner_result result =
+let raise_on_error result =
     match result with
-    | Ok value -> value
-    | Error message -> raise (Scanner_error message)
+    | Ok (value, pos) -> value, pos
+    | Error (message, _) -> raise (Scanner_error message)
 
-let scan_token_result source =
+let scan_token source =
     let start_pos = Scanner.init () in
-    let token_result, _ = Scanner.scan_and_extract_token source start_pos in
-    unpack_scanner_result token_result
+    let token, _ = 
+        Scanner.scan_and_extract_token source start_pos
+        |> raise_on_error in
+    token
 
 let check_scan_token_eq source ~expected =
-    let token = scan_token_result source in
+    let token = scan_token source in
     Alcotest.(check token_testable)
         "Same token" expected token
 
@@ -38,7 +40,7 @@ let test_parse_unexpected_char () =
     Alcotest.check_raises
         "Scanner error"
         (Scanner_error "Unexpected character.")
-        (fun () -> let _ = scan_token_result "@" in ())
+        (fun () -> let _ = scan_token "@" in ())
 
 let test_parse_single_char_with_whitespace () =
     check_scan_token_eq "  (" ~expected:Token.{
@@ -98,15 +100,14 @@ let test_handle_unterminated_string () =
     Alcotest.check_raises
         "Scanner error"
         (Scanner_error "Unterminated string.")
-        (fun () -> let _ = scan_token_result "\"hello world" in ())
+        (fun () -> let _ = scan_token "\"hello world" in ())
 
 let test_unterminated_string_has_correct_position () =
     let source = "\"hello world" in
     let start_pos = Scanner.init () in
-    let token_type_result, pos = Scanner.scan_token source start_pos in
-    match token_type_result with
+    match Scanner.scan_token source start_pos with
     | Ok _ -> Alcotest.fail "String should not have parsed successfully"
-    | Error message ->
+    | Error (message, pos) ->
         Alcotest.(check string)
             "Same error"
             "Unterminated string."
@@ -147,16 +148,18 @@ let test_produces_EOF_at_end () =
 let test_no_change_after_EOF () =
     let source = "" in
     let pos0 = Scanner.init () in
-    let token_result1, pos1 = Scanner.scan_token source pos0 in
-    let token_result2, pos2 = Scanner.scan_token source pos1 in
+    let token_type1, pos1 =
+        Scanner.scan_token source pos0 |> raise_on_error in
+    let token_type2, pos2 =
+        Scanner.scan_token source pos1 |> raise_on_error in
     Alcotest.(check token_type_testable)
         "EOF type"
         Token.EOF
-        (unpack_scanner_result token_result1);
+        token_type1;
     Alcotest.(check token_type_testable)
         "EOF type"
         Token.EOF
-        (unpack_scanner_result token_result2);
+        token_type2;
     Alcotest.(check position_testable)
         "Same position" pos1 pos2
 

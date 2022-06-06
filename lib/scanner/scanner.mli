@@ -19,7 +19,9 @@ val init : unit -> position
     allowing for multiple errors to be surfaced for a given source string.
 *)
 val scan_token :
-    string -> position -> (Token.token_type, string) result * position
+    string ->
+        position ->
+            (Token.token_type * position, string * position) result
 
 val create_token :
     string -> position -> Token.token_type -> (Token.token, string) result
@@ -27,7 +29,7 @@ val create_token :
 val update_start : position -> position
 
 val scan_and_extract_token :
-    string -> position -> (Token.token, string) result * position
+    string -> position -> (Token.token * position, string * position) result
 
 val scan_tokens :
     string -> ?pos:position -> (Token.token, string) result Seq.t
