@@ -51,3 +51,5 @@ val parse_left_assoc_binary_ops :
                 partial_parse
 
 val parse_expression : expression_parser
+
+val evaluate_expression : expression -> literal

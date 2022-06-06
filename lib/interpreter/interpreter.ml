@@ -19,7 +19,12 @@ let run source =
     in
     match remaining_tokens with
     | [ { token_type=Token.EOF; _} ] ->
-        print_endline (Parser.to_sexp expr); Ok ()
+        expr
+        |> Parser.evaluate_expression
+        |> fun literal -> Parser.Literal literal
+        |> Parser.to_sexp
+        |> print_endline;
+        Ok ()
     | _ -> Error "Expected a single expression"
 
 let report line where message =

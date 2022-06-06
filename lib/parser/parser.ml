@@ -198,3 +198,59 @@ and parse_equality tokens =
 (* expression -> equality *)
 and parse_expression tokens =
     parse_equality tokens
+
+let is_truthy (value: literal) : bool =
+    match value with
+    | Nil -> false
+    | False -> false
+    | _ -> true
+
+let is_equal (left : literal) (right: literal) : bool =
+    match left, right with
+    | Number left, Number right -> left == right
+    | String left, String right -> String.equal left right
+    | True, True -> true
+    | False, False -> true
+    | Nil, Nil -> true
+    | _ -> false
+
+let of_bool (value : bool) : literal =
+    match value with
+    | true -> True
+    | false -> False
+
+let rec evaluate_expression expr =
+    match expr with
+    | Literal value -> value
+    | Unary (op, subexpr) ->
+        let value = evaluate_expression subexpr in
+        begin match op with
+        | Negate ->
+            begin match value with
+            | Number num -> Number (-.num)
+            | _ -> raise (Failure "TODO")
+            end
+        | LogicalNot ->value |> is_truthy |> not |> of_bool
+        end
+    | Grouping subexpr -> evaluate_expression subexpr
+    | Binary (op, subexpr1, subexpr2) ->
+        let left = evaluate_expression subexpr1 in
+        let right = evaluate_expression subexpr2 in
+        begin match (op, left, right) with
+        (* Floating point operations on numbers *)
+        | Plus, Number left, Number right -> Number (left +. right)
+        | Minus, Number left, Number right -> Number (left -. right)
+        | Star, Number left, Number right -> Number (left *. right)
+        | Slash, Number left, Number right -> Number (left /. right)
+        (* Boolean operations on numbers *)
+        | Less, Number left, Number right -> (left < right) |> of_bool
+        | LessEqual, Number left, Number right -> (left <= right) |> of_bool
+        | Greater, Number left, Number right -> (left > right) |> of_bool
+        | GreaterEqual, Number left, Number right -> (left >= right) |> of_bool
+        (* Operations on strings *)
+        | Plus, String left, String right -> String (left ^ right)
+        (* Equality operations *)
+        | EqualEqual, left, right -> (is_equal left right) |> of_bool
+        | BangEqual, left, right -> (is_equal left right) |> not |> of_bool
+        | _ -> raise (Failure "TODO")
+        end
