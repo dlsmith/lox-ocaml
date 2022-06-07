@@ -21,6 +21,15 @@ type binary_op =
     | Star
     | Slash
 
+(* TODO: Unary and Binary operations need to carry code reference payload for
+    error handling. The book passes the op token through as part of the
+    expression payload. I initially tried this, but it doesn't end up taking
+    much advantage of the type system. I.e., we have to check the token type
+    when we create the `expression`, but then store the op as a generic token
+    and then have to keep checking it again when we interpret the AST. Instead,
+    we should make illegal states unrepresentable, and also just pass through
+    what we need (e.g., line number or some `code_ref` record type).
+*)
 type expression =
     | Literal of literal
     | Unary of unary_op * expression
