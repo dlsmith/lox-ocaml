@@ -60,6 +60,10 @@ let parse_number_literal source pos =
  need to sometimes return nothing, and let the caller handle the skipping
  logic. This isn't a huge burden, but it's a nice API that says, "just give
  me the next token and tell me where you left off."
+
+ Maybe we could use smart constructors, i.e., hide the underlying record type
+ and construct via utility functions in the `Token` module, e.g., that extract
+ substrings from the source string given a `position`.
 *)
 let create_token source pos token_type =
     Ok Token.{
