@@ -123,8 +123,7 @@ let match_next source pos c then_type else_type =
     | Some test_c when test_c = c -> then_type, inc_current pos
     | _ -> else_type, pos
 
-let result_attach b r =
-    match r with
+let result_attach b = function
     | Ok a -> Ok (a, b)
     | Error e -> Error (e, b)
 
@@ -132,10 +131,9 @@ let rec scan_token source pos =
     let c, pos = advance source pos in
     match c with
     | None -> Ok (Token.EOF, pos)
-    | Some c -> consume_char c source pos
+    | Some c -> consume_char source pos c
 
-and consume_char c source pos =
-    match c with
+and consume_char source pos = function
     (* Whitespace *)
     | ' '  | '\r' | '\t' -> scan_token source (pos |> update_start)
     | '\n' -> scan_token source (pos |> inc_line |> update_start)

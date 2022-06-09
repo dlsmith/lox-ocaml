@@ -12,8 +12,7 @@ let token_result_list_testable =
 
 exception Scanner_error of string
 
-let raise_on_error result =
-    match result with
+let raise_on_error = function
     | Ok (value, pos) -> value, pos
     | Error (message, _) -> raise (Scanner_error message)
 

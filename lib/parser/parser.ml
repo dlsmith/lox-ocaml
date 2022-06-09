@@ -76,20 +76,17 @@ type partial_parse = (expression * token_list, string * token_list) result
 
 type expression_parser = token_list -> partial_parse
 
-let head l =
-    match l with
+let head = function
     | [] -> None
     | [x] -> Some x
     | x::_ -> Some x
 
-let tail l =
-    match l with
+let tail = function
     | [] -> []
     | [_] -> []
     | _::xs -> xs
 
-let uncons l =
-    match l with
+let uncons = function
     | [] -> None, []
     | [x] -> Some x, []
     | x::xs -> Some x, xs
@@ -160,8 +157,7 @@ and parse_unary tokens =
 and parse_factor tokens =
     parse_left_assoc_binary_ops
         ~subparser:parse_unary
-        begin fun token_type ->
-            match token_type with
+        begin function
             | Token.Slash -> Some Slash
             | Token.Star -> Some Star
             | _ -> None
@@ -172,8 +168,7 @@ and parse_factor tokens =
 and parse_term tokens =
     parse_left_assoc_binary_ops
         ~subparser:parse_factor
-        begin fun token_type ->
-            match token_type with
+        begin function
             | Token.Minus -> Some Minus
             | Token.Plus -> Some Plus
             | _ -> None
@@ -184,8 +179,7 @@ and parse_term tokens =
 and parse_comparison tokens =
     parse_left_assoc_binary_ops
         ~subparser:parse_term
-        begin fun token_type ->
-            match token_type with
+        begin function
             | Token.Greater -> Some Greater
             | Token.GreaterEqual -> Some GreaterEqual
             | Token.Less -> Some Less
@@ -198,8 +192,7 @@ and parse_comparison tokens =
 and parse_equality tokens =
     parse_left_assoc_binary_ops
         ~subparser:parse_comparison
-        begin fun token_type ->
-            match token_type with
+        begin function
             | Token.BangEqual -> Some BangEqual
             | Token.EqualEqual -> Some EqualEqual
             | _ -> None
@@ -233,8 +226,7 @@ let of_bool (value : bool) : literal =
 let error message line =
     Error (Printf.sprintf "[line %i] Error: %s" line message)
 
-let rec evaluate_expression expr =
-    match expr with
+let rec evaluate_expression = function
     | Literal value -> Ok value
     | Unary (op, subexpr, LineNumber line) ->
         let* value = evaluate_expression subexpr in
