@@ -8,3 +8,8 @@
  (modules token)
  (preprocess
    (pps ppx_deriving.show ppx_deriving.eq)))
+
+(library
+  (name util)
+  (modules util)
+  (libraries token scanner parser))

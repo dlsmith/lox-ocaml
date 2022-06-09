@@ -4,6 +4,7 @@ type literal =
     | True
     | False
     | Nil
+[@@deriving show, eq]
 
 type unary_op =
     | Negate
@@ -241,30 +242,34 @@ let rec evaluate_expression expr =
         | Negate ->
             begin match value with
             | Number num -> Ok (Number (-.num))
-            | _ -> error "Negation only applies to numbers" line
+            | _ -> error "Operand must be a number." line
             end
         | LogicalNot -> Ok (value |> is_truthy |> not |> of_bool)
         end
     | Grouping subexpr -> evaluate_expression subexpr
     | Binary (op, subexpr1, subexpr2, LineNumber line) ->
-        let* left = evaluate_expression subexpr1 in
-        let* right = evaluate_expression subexpr2 in
-        begin match (op, left, right) with
-        (* Floating point operations on numbers *)
-        | Plus, Number left, Number right -> Ok (Number (left +. right))
-        | Minus, Number left, Number right -> Ok (Number (left -. right))
-        | Star, Number left, Number right -> Ok (Number (left *. right))
-        | Slash, Number left, Number right -> Ok (Number (left /. right))
-        (* Boolean operations on numbers *)
-        | Less, Number left, Number right -> Ok ((left < right) |> of_bool)
-        | LessEqual, Number left, Number right ->
-            Ok ((left <= right) |> of_bool)
-        | Greater, Number left, Number right -> Ok ((left > right) |> of_bool)
-        | GreaterEqual, Number left, Number right -> Ok ((left >= right) |> of_bool)
-        (* Operations on strings *)
-        | Plus, String left, String right -> Ok (String (left ^ right))
-        (* Equality operations *)
-        | EqualEqual, left, right -> Ok ((is_equal left right) |> of_bool)
-        | BangEqual, left, right -> Ok ((is_equal left right) |> not |> of_bool)
-        | _ -> error "Binary operator/operands are not compatible" line
+        let* l = evaluate_expression subexpr1 in
+        let* r = evaluate_expression subexpr2 in
+        begin match (op, l, r) with
+        | Plus, l, r ->
+            begin match (l, r) with
+            (* String concatenation *)
+            | String l, String r -> Ok (String (l ^ r))
+            (* Floating point addition *)
+            | Number l, Number r -> Ok (Number (l +. r))
+            | _ -> error "Operands must be two numbers or two strings." line
+            end
+        (* Remaining floating point operations *)
+        | Minus, Number l, Number r -> Ok (Number (l -. r))
+        | Star, Number l, Number r -> Ok (Number (l *. r))
+        | Slash, Number l, Number r -> Ok (Number (l /. r))
+        (* Comparison operations *)
+        | Less, Number l, Number r -> Ok ((l < r) |> of_bool)
+        | LessEqual, Number l, Number r -> Ok ((l <= r) |> of_bool)
+        | Greater, Number l, Number r -> Ok ((l > r) |> of_bool)
+        | GreaterEqual, Number l, Number r -> Ok ((l >= r) |> of_bool)
+        (* Boolean equality operations *)
+        | EqualEqual, l, r -> Ok ((is_equal l r) |> of_bool)
+        | BangEqual, l, r -> Ok ((is_equal l r) |> not |> of_bool)
+        | _ -> error "Operands must be numbers." line
         end

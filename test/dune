@@ -6,4 +6,4 @@
 (test
   (name test_parser)
   (modules test_parser)
-  (libraries alcotest parser))
+  (libraries alcotest parser util))

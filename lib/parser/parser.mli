@@ -4,6 +4,7 @@ type literal =
     | True
     | False
     | Nil
+[@@deriving show, eq]
 
 type unary_op =
     | Negate
