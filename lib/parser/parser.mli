@@ -36,6 +36,7 @@ type expression =
     | Grouping of expression
 
 (** Serialize an `expression` AST as an s-expression. *)
+(* TODO(dlsmith): Probably shouldn't live in `Parser` module. *)
 val to_sexp : expression -> string
 
 exception Parse_error of string
@@ -60,4 +61,5 @@ val parse_left_assoc_binary_ops :
 
 val parse_expression : expression_parser
 
-val evaluate_expression : expression -> literal
+(* TODO(dlsmith): Probably shouldn't live in `Parser` module. *)
+val evaluate_expression : expression -> (literal, string) result

@@ -229,38 +229,42 @@ let of_bool (value : bool) : literal =
     | true -> True
     | false -> False
 
+let error message line =
+    Error (Printf.sprintf "[line %i] Error: %s" line message)
+
 let rec evaluate_expression expr =
     match expr with
-    | Literal value -> value
-    | Unary (op, subexpr, LineNumber _) ->
-        let value = evaluate_expression subexpr in
+    | Literal value -> Ok value
+    | Unary (op, subexpr, LineNumber line) ->
+        let* value = evaluate_expression subexpr in
         begin match op with
         | Negate ->
             begin match value with
-            | Number num -> Number (-.num)
-            | _ -> raise (Failure "TODO")
+            | Number num -> Ok (Number (-.num))
+            | _ -> error "Negation only applies to numbers" line
             end
-        | LogicalNot ->value |> is_truthy |> not |> of_bool
+        | LogicalNot -> Ok (value |> is_truthy |> not |> of_bool)
         end
     | Grouping subexpr -> evaluate_expression subexpr
-    | Binary (op, subexpr1, subexpr2, LineNumber _) ->
-        let left = evaluate_expression subexpr1 in
-        let right = evaluate_expression subexpr2 in
+    | Binary (op, subexpr1, subexpr2, LineNumber line) ->
+        let* left = evaluate_expression subexpr1 in
+        let* right = evaluate_expression subexpr2 in
         begin match (op, left, right) with
         (* Floating point operations on numbers *)
-        | Plus, Number left, Number right -> Number (left +. right)
-        | Minus, Number left, Number right -> Number (left -. right)
-        | Star, Number left, Number right -> Number (left *. right)
-        | Slash, Number left, Number right -> Number (left /. right)
+        | Plus, Number left, Number right -> Ok (Number (left +. right))
+        | Minus, Number left, Number right -> Ok (Number (left -. right))
+        | Star, Number left, Number right -> Ok (Number (left *. right))
+        | Slash, Number left, Number right -> Ok (Number (left /. right))
         (* Boolean operations on numbers *)
-        | Less, Number left, Number right -> (left < right) |> of_bool
-        | LessEqual, Number left, Number right -> (left <= right) |> of_bool
-        | Greater, Number left, Number right -> (left > right) |> of_bool
-        | GreaterEqual, Number left, Number right -> (left >= right) |> of_bool
+        | Less, Number left, Number right -> Ok ((left < right) |> of_bool)
+        | LessEqual, Number left, Number right ->
+            Ok ((left <= right) |> of_bool)
+        | Greater, Number left, Number right -> Ok ((left > right) |> of_bool)
+        | GreaterEqual, Number left, Number right -> Ok ((left >= right) |> of_bool)
         (* Operations on strings *)
-        | Plus, String left, String right -> String (left ^ right)
+        | Plus, String left, String right -> Ok (String (left ^ right))
         (* Equality operations *)
-        | EqualEqual, left, right -> (is_equal left right) |> of_bool
-        | BangEqual, left, right -> (is_equal left right) |> not |> of_bool
-        | _ -> raise (Failure "TODO")
+        | EqualEqual, left, right -> Ok ((is_equal left right) |> of_bool)
+        | BangEqual, left, right -> Ok ((is_equal left right) |> not |> of_bool)
+        | _ -> error "Binary operator/operands are not compatible" line
         end
