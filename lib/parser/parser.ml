@@ -21,10 +21,12 @@ type binary_op =
     | Star
     | Slash
 
+type line_number = LineNumber of int
+
 type expression =
     | Literal of literal
-    | Unary of unary_op * expression
-    | Binary of binary_op * expression * expression
+    | Unary of unary_op * expression * line_number
+    | Binary of binary_op * expression * expression * line_number
     | Grouping of expression
 
 let rec to_sexp expression =
@@ -38,13 +40,13 @@ let rec to_sexp expression =
             | False -> "false"
             | Nil -> "nil"
         end
-    | Unary (op, subexpr) ->
+    | Unary (op, subexpr, _) ->
         let op_str = match op with
         | Negate -> "-"
         | LogicalNot -> "!"
         in
         Printf.sprintf "(%s %s)" op_str (to_sexp subexpr)
-    | Binary (op, subexpr1, subexpr2) ->
+    | Binary (op, subexpr1, subexpr2, _) ->
         let op_str = match op with
         | EqualEqual -> "=="
         | BangEqual -> "!="
@@ -98,18 +100,24 @@ let (let*) = Result.bind
 
 let rec parse_left_assoc_binary_ops ~subparser match_op tokens =
     let* expr, tokens = subparser tokens in
-    let op = Option.bind (head tokens) (fun token ->
-        token |> get_token_type |> match_op) in
-    match op with
+    let op_line =
+        Option.bind (head tokens) (fun token ->
+            token
+            |> get_token_type
+            |> match_op
+            |> Option.map (fun op -> op, Token.(token.line))
+        )
+    in
+    match op_line with
     | None -> Ok (expr, tokens)
-    | Some op ->
+    | Some (op, line) ->
         let* right, tokens =
             parse_left_assoc_binary_ops
                 ~subparser
                 match_op
                 (tail tokens)
         in
-        Ok (Binary (op, expr, right), tokens)
+        Ok (Binary (op, expr, right, LineNumber line), tokens)
 
 (* primary ->
     NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ; *)
@@ -133,17 +141,19 @@ let rec parse_primary tokens =
 
 (* unary -> ( "!" | "-" ) unary | primary ; *)
 and parse_unary tokens =
-    let token = head tokens in
-    let op = match Option.map get_token_type token with
-    | Some Token.Bang -> Some LogicalNot
-    | Some Token.Minus -> Some Negate
-    | _ -> None
+    let op_line =
+        Option.bind (head tokens) (fun token ->
+            match get_token_type token with
+            | Token.Bang -> Some (LogicalNot, token.line)
+            | Token.Minus -> Some (Negate, token.line)
+            | _ -> None
+        )
     in
-    match op with
+    match op_line with
     | None -> parse_primary tokens
-    | Some op ->
+    | Some (op, line) ->
         let* right, tokens = parse_unary (tail tokens) in
-        Ok (Unary (op, right), tokens)
+        Ok (Unary (op, right, LineNumber line), tokens)
 
 (* factor -> unary ( ( "/" | "*" ) unary )* ; *)
 and parse_factor tokens =
@@ -222,7 +232,7 @@ let of_bool (value : bool) : literal =
 let rec evaluate_expression expr =
     match expr with
     | Literal value -> value
-    | Unary (op, subexpr) ->
+    | Unary (op, subexpr, LineNumber _) ->
         let value = evaluate_expression subexpr in
         begin match op with
         | Negate ->
@@ -233,7 +243,7 @@ let rec evaluate_expression expr =
         | LogicalNot ->value |> is_truthy |> not |> of_bool
         end
     | Grouping subexpr -> evaluate_expression subexpr
-    | Binary (op, subexpr1, subexpr2) ->
+    | Binary (op, subexpr1, subexpr2, LineNumber _) ->
         let left = evaluate_expression subexpr1 in
         let right = evaluate_expression subexpr2 in
         begin match (op, left, right) with

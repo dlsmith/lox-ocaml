@@ -21,19 +21,18 @@ type binary_op =
     | Star
     | Slash
 
-(* TODO: Unary and Binary operations need to carry code reference payload for
-    error handling. The book passes the op token through as part of the
-    expression payload. I initially tried this, but it doesn't end up taking
-    much advantage of the type system. I.e., we have to check the token type
-    when we create the `expression`, but then store the op as a generic token
-    and then have to keep checking it again when we interpret the AST. Instead,
-    we should make illegal states unrepresentable, and also just pass through
-    what we need (e.g., line number or some `code_ref` record type).
-*)
+type line_number = LineNumber of int
+
+(* TODO(dlsmith): For some expression variants we include a line number to
+   enable error reporting. This does not feel like a good way to carry around
+   this information, but I'm taking the most direct path for now to not
+   overcomplicate things, until I know better how I want to generalize.
+   This _will_ be refactored.
+ *)
 type expression =
     | Literal of literal
-    | Unary of unary_op * expression
-    | Binary of binary_op * expression * expression
+    | Unary of unary_op * expression * line_number
+    | Binary of binary_op * expression * expression * line_number
     | Grouping of expression
 
 (** Serialize an `expression` AST as an s-expression. *)

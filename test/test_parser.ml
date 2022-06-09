@@ -13,9 +13,14 @@ let test_to_sexp () =
                             Binary (
                                 Plus,
                                 Literal (Number 5.0),
-                                Literal (Number 2.0)
-                            )))),
-                Literal True)
+                                Literal (Number 2.0),
+                                LineNumber 0
+                            )),
+                        LineNumber 0),
+                        LineNumber 0
+                    ),
+                Literal True,
+                LineNumber 0)
         in
     Alcotest.(check string)
         "Same string"
