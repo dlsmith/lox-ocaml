@@ -62,5 +62,3 @@ val parse_left_assoc_binary_ops :
 
 val parse_expression : expression_parser
 
-(* TODO(dlsmith): Probably shouldn't live in `Parsing` module. *)
-val evaluate_expression : expression -> (literal, string) result

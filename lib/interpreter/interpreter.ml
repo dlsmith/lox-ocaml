@@ -2,7 +2,7 @@ let (let*) = Result.bind
 
 let run source =
     let* expr = Util.scan_and_parse source in
-    let* literal = Parsing.evaluate_expression expr in
+    let* literal = Evaluation.evaluate_expression expr in
     print_endline (Parsing.to_sexp (Parsing.Literal literal));
     Ok ()
 
