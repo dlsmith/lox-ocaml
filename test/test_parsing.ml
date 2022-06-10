@@ -1,7 +1,7 @@
 let test_to_sexp () =
     let expected = "(== (> 1.2 (- (group (+ 5. 2.)))) true)" in
     let ast =
-        let open Parser in
+        let open Parsing in
             Binary (
                 EqualEqual,
                 Binary (
@@ -25,10 +25,10 @@ let test_to_sexp () =
     Alcotest.(check string)
         "Same string"
         expected
-        (Parser.to_sexp ast)
+        (Parsing.to_sexp ast)
 
 let check_parse tokens ~ok ~error =
-    let partial_parse = Parser.parse_expression tokens in
+    let partial_parse = Parsing.parse_expression tokens in
     match partial_parse with
     | Ok (expr, tokens) -> ok (expr, tokens)
     | Error (message, tokens) -> error (message, tokens)
@@ -55,7 +55,7 @@ let check_parse_ok tokens expected_sexp =
             Alcotest.(check string)
                 "Same s-exp"
                 expected_sexp
-                (Parser.to_sexp expr)
+                (Parsing.to_sexp expr)
         )
         ~error:(fun _ -> Alcotest.fail "Expected parse ok")
 
@@ -109,11 +109,11 @@ let test_partial_binary_expression () =
     check_parse_error tokens "Expect expression."
 
 let literal_testable =
-    Alcotest.testable Parser.pp_literal Parser.equal_literal
+    Alcotest.testable Parsing.pp_literal Parsing.equal_literal
 
 let evaluate source =
     match Util.scan_and_parse source with
-    | Ok expr -> Parser.evaluate_expression expr
+    | Ok expr -> Parsing.evaluate_expression expr
     | Error message ->
         Alcotest.fail (Printf.sprintf "Unexpected failure: %s" message)
 
@@ -122,7 +122,7 @@ let test_evaluate_valid_expression () =
     Alcotest.(check literal_testable)
         "Same value"
         (source |> evaluate |> Result.get_ok)
-        Parser.True
+        Parsing.True
 
 let test_evaluate_invalid_negation () =
     let source = "-\"hello\"" in
@@ -146,7 +146,7 @@ let test_evaluate_invalid_operands () =
         "[line 0] Error: Operands must be numbers."
 
 let () =
-    Alcotest.run "Parser test suite"
+    Alcotest.run "Parsing test suite"
         [
             ("Print AST", [
                 Alcotest.test_case

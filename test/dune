@@ -1,9 +1,9 @@
 (test
-  (name test_scanner)
-  (modules test_scanner)
-  (libraries alcotest scanner))
+  (name test_scanning)
+  (modules test_scanning)
+  (libraries alcotest scanning))
 
 (test
-  (name test_parser)
-  (modules test_parser)
-  (libraries alcotest parser util))
+  (name test_parsing)
+  (modules test_parsing)
+  (libraries alcotest parsing util))

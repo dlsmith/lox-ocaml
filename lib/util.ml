@@ -7,7 +7,7 @@ let (let*) = Result.bind
 let scan_and_parse source =
     let token_results =
         source
-        |> Scanner.scan_tokens
+        |> Scanning.scan_tokens
         (* TODO(dlsmith): Consume `Seq` directly. *)
         |> List.of_seq in
     let* tokens =
@@ -17,7 +17,7 @@ let scan_and_parse source =
         | tokens -> Ok tokens
     in
     let* expr, remaining_tokens =
-        Parser.parse_expression tokens
+        Parsing.parse_expression tokens
         (* TODO(dlsmith): Surface all errors. *)
         |> Result.map_error (fun (message, _) -> message)
     in

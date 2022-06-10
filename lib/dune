@@ -12,4 +12,4 @@
 (library
   (name util)
   (modules util)
-  (libraries token scanner parser))
+  (libraries token scanning parsing))

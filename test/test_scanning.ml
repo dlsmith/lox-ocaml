@@ -5,21 +5,21 @@ let token_type_testable =
     Alcotest.testable Token.pp_token_type Token.equal_token_type
 
 let position_testable =
-    Alcotest.testable Scanner.pp_position Scanner.equal_position
+    Alcotest.testable Scanning.pp_position Scanning.equal_position
 
 let token_result_list_testable =
     Alcotest.(list (result token_testable string))
 
-exception Scanner_error of string
+exception Scanning_error of string
 
 let raise_on_error = function
     | Ok (value, pos) -> value, pos
-    | Error (message, _) -> raise (Scanner_error message)
+    | Error (message, _) -> raise (Scanning_error message)
 
 let scan_token source =
-    let start_pos = Scanner.init () in
+    let start_pos = Scanning.init () in
     let token, _ = 
-        Scanner.scan_and_extract_token source start_pos
+        Scanning.scan_and_extract_token source start_pos
         |> raise_on_error in
     token
 
@@ -37,8 +37,8 @@ let test_parse_single_char_token () =
 
 let test_parse_unexpected_char () =
     Alcotest.check_raises
-        "Scanner error"
-        (Scanner_error "Unexpected character.")
+        "Scanning error"
+        (Scanning_error "Unexpected character.")
         (fun () -> let _ = scan_token "@" in ())
 
 let test_parse_single_char_with_whitespace () =
@@ -97,14 +97,14 @@ let test_parse_string_literal () =
 
 let test_handle_unterminated_string () =
     Alcotest.check_raises
-        "Scanner error"
-        (Scanner_error "Unterminated string.")
+        "Scanning error"
+        (Scanning_error "Unterminated string.")
         (fun () -> let _ = scan_token "\"hello world" in ())
 
 let test_unterminated_string_has_correct_position () =
     let source = "\"hello world" in
-    let start_pos = Scanner.init () in
-    match Scanner.scan_token source start_pos with
+    let start_pos = Scanning.init () in
+    match Scanning.scan_token source start_pos with
     | Ok _ -> Alcotest.fail "String should not have parsed successfully"
     | Error (message, pos) ->
         Alcotest.(check string)
@@ -113,7 +113,7 @@ let test_unterminated_string_has_correct_position () =
             message;
         Alcotest.(check position_testable)
             "Same position"
-            Scanner.{ start=0; current=String.length source; line=0 }
+            Scanning.{ start=0; current=String.length source; line=0 }
             pos
 
 let test_parse_int_literal () =
@@ -146,11 +146,11 @@ let test_produces_EOF_at_end () =
 
 let test_no_change_after_EOF () =
     let source = "" in
-    let pos0 = Scanner.init () in
+    let pos0 = Scanning.init () in
     let token_type1, pos1 =
-        Scanner.scan_token source pos0 |> raise_on_error in
+        Scanning.scan_token source pos0 |> raise_on_error in
     let token_type2, pos2 =
-        Scanner.scan_token source pos1 |> raise_on_error in
+        Scanning.scan_token source pos1 |> raise_on_error in
     Alcotest.(check token_type_testable)
         "EOF type"
         Token.EOF
@@ -187,7 +187,7 @@ let test_multi_token_scan () =
     ] in
     let tokens =
         source
-        |> Scanner.scan_tokens
+        |> Scanning.scan_tokens
         |> Seq.map Result.get_ok
         |> List.of_seq in
     Alcotest.(check (list token_testable))
@@ -206,14 +206,14 @@ let test_captures_multiple_errors () =
         Ok { token_type=RightParen; lexeme=")"; line=0; };
         Ok { token_type=EOF; lexeme=""; line=0; };
     ] in
-    let token_results = source |> Scanner.scan_tokens |> List.of_seq in
+    let token_results = source |> Scanning.scan_tokens |> List.of_seq in
     Alcotest.(check token_result_list_testable)
         "Token results equal"
         expected_token_results
         token_results
 
 let () =
-    Alcotest.run "Scanner test suite"
+    Alcotest.run "Scanning test suite"
         [
             ("Single char token", [
                 Alcotest.test_case
