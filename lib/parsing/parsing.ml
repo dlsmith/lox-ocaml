@@ -104,20 +104,18 @@ let rec parse_left_assoc_binary_ops ~subparser match_op tokens =
 (* primary ->
     NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ; *)
 let rec parse_primary tokens =
-    let token, tokens = Util.uncons tokens in
+    let token, rest_tokens = Util.uncons tokens in
     match Option.map get_token_type token with
-    | Some Token.False -> Ok (Literal False, tokens)
-    | Some Token.True -> Ok (Literal True, tokens)
-    | Some Token.Nil -> Ok (Literal Nil, tokens)
-    | Some Token.Number num -> Ok (Literal (Number num), tokens)
-    | Some Token.String str  -> Ok (Literal (String str), tokens)
+    | Some Token.False -> Ok (Literal False, rest_tokens)
+    | Some Token.True -> Ok (Literal True, rest_tokens)
+    | Some Token.Nil -> Ok (Literal Nil, rest_tokens)
+    | Some Token.Number num -> Ok (Literal (Number num), rest_tokens)
+    | Some Token.String str  -> Ok (Literal (String str), rest_tokens)
     | Some Token.LeftParen ->
-        begin
-            let* expr, tokens = parse_expression tokens in
-            let token, tokens = Util.uncons tokens in
-            match Option.map get_token_type token with
-            | Some Token.RightParen -> Ok (Grouping expr, tokens)
-            | _ -> Error ("Expect ')' after expression.", tokens)
+        let* expr, rest_tokens = parse_expression rest_tokens in
+        begin match Option.map get_token_type (Util.head rest_tokens) with
+        | Some Token.RightParen -> Ok (Grouping expr, (Util.tail rest_tokens))
+        | _ -> Error ("Expect ')' after expression.", rest_tokens)
         end
     | _ -> Error ("Expect expression.", tokens)
 

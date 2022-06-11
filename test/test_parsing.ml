@@ -108,6 +108,29 @@ let test_partial_binary_expression () =
     ] in
     check_parse_error tokens "Expect expression."
 
+let test_token_not_consumed_on_error () =
+    let token_testable =
+        Alcotest.testable Token.pp_token Token.equal_token in
+    let open Token in
+    let tokens = [
+        { token_type=Number 1.; lexeme="1.0"; line=0; };
+        { token_type=Plus; lexeme="+"; line=0; };
+        { token_type=EOF; lexeme=""; line=0; };
+    ] in
+    check_parse
+        tokens
+        ~ok:(fun _ -> Alcotest.fail "Expected parse error")
+        ~error:(fun (message, rest_tokens) ->
+            Alcotest.(check string)
+                "Same error"
+                "Expect expression."
+                message;
+            Alcotest.(check (list token_testable))
+                "Same tokens"
+                [ { token_type=EOF; lexeme=""; line=0; } ]
+                rest_tokens
+        )
+
 let test_parse_print_statement () =
     let open Token in
     let expected_expr = "(+ 1. 2.)" in
@@ -204,6 +227,10 @@ let () =
                 "Partial binary expression"
                 `Quick
                 test_partial_binary_expression;
+                Alcotest.test_case
+                "Token not consumed on error"
+                `Quick
+                test_token_not_consumed_on_error;
             ]);
             ("Parse statements", [
                 Alcotest.test_case

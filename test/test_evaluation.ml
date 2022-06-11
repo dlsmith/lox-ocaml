@@ -4,12 +4,12 @@ let literal_testable =
 let evaluate_expr source =
     let (let*) = Result.bind in
     let* tokens = Interpreter.scan_or_error source in
-    let* expr, remaining_tokens =
+    let* expr, rest_tokens =
         Parsing.parse_expression tokens
         (* TODO(dlsmith): Surface all errors. *)
         |> Result.map_error (fun (message, _) -> message)
     in
-    match remaining_tokens with
+    match rest_tokens with
     | [ { token_type=Token.EOF; _} ] -> Evaluation.evaluate_expression expr
     | _ -> Error "Expected a single expression"
 
