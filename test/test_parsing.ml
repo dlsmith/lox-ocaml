@@ -108,6 +108,58 @@ let test_partial_binary_expression () =
     ] in
     check_parse_error tokens "Expect expression."
 
+let test_parse_print_statement () =
+    let open Token in
+    let expected_expr = "(+ 1. 2.)" in
+    let tokens = [
+        { token_type=Print; lexeme="print"; line=0; };
+        { token_type=Number 1.; lexeme="1.0"; line=0; };
+        { token_type=Plus; lexeme="+"; line=0; };
+        { token_type=Number 2.; lexeme="2.0"; line=0; };
+        { token_type=Semicolon; lexeme=";"; line=0; };
+        { token_type=EOF; lexeme=""; line=0; };
+    ] in
+    match Parsing.parse_statement tokens with
+    | Ok (Parsing.Print expr, [ { token_type=EOF; _ } ]) ->
+        Alcotest.(check string)
+            "Same string"
+            expected_expr
+            (Parsing.to_sexp expr)
+    | Error (message, _) -> Alcotest.fail ("Parsing error: " ^ message)
+    | _ -> Alcotest.fail "Unexpected parse"
+
+let test_parse_multiple_statements () =
+    let open Token in
+    let expected_expr1 = "(+ 1. 2.)" in
+    let expected_expr2 = "(- 3. 4.)" in
+    let tokens = [
+        { token_type=Number 1.; lexeme="1.0"; line=0; };
+        { token_type=Plus; lexeme="+"; line=0; };
+        { token_type=Number 2.; lexeme="2.0"; line=0; };
+        { token_type=Semicolon; lexeme=";"; line=0; };
+        { token_type=Print; lexeme="print"; line=0; };
+        { token_type=Number 3.; lexeme="3.0"; line=0; };
+        { token_type=Minus; lexeme="-"; line=0; };
+        { token_type=Number 4.; lexeme="4.0"; line=0; };
+        { token_type=Semicolon; lexeme=";"; line=0; };
+        { token_type=EOF; lexeme=""; line=0; };
+    ] in
+    let stmt_results = Parsing.parse_program tokens in
+    (* TODO(dlsmith): Refactor to clean this up a bit, so we're not pattern
+       matching down to expressions which we then serialize. E.g., could add
+       support for full programs in `to_sexp`. *)
+    match stmt_results with
+    | [ Ok (Expression expr1); Ok (Print expr2) ] ->
+        Alcotest.(check string)
+            "Same string"
+            expected_expr1
+            (Parsing.to_sexp expr1);
+        Alcotest.(check string)
+            "Same string"
+            expected_expr2
+            (Parsing.to_sexp expr2)
+    | _ -> Alcotest.fail "Unexpected parse"
+
 let () =
     Alcotest.run "Parsing test suite"
         [
@@ -117,7 +169,7 @@ let () =
                 `Quick
                 test_to_sexp;
             ]);
-            ("Parse expression", [
+            ("Parse expressions", [
                 Alcotest.test_case
                 "Arithmetic precedence"
                 `Quick
@@ -126,8 +178,6 @@ let () =
                 "Expression with unary, binary, and grouping"
                 `Quick
                 test_unary_binary_grouping;
-            ]);
-            ("Parse failure", [
                 Alcotest.test_case
                 "Unclosed grouping"
                 `Quick
@@ -136,5 +186,17 @@ let () =
                 "Partial binary expression"
                 `Quick
                 test_partial_binary_expression;
+            ]);
+            ("Parse statements", [
+                Alcotest.test_case
+                "Print statement"
+                `Quick
+                test_parse_print_statement;
+            ]);
+            ("Parse program", [
+                Alcotest.test_case
+                "Multiple statements"
+                `Quick
+                test_parse_multiple_statements;
             ]);
         ]

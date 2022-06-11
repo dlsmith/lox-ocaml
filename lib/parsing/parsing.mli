@@ -36,6 +36,10 @@ type expression =
     | Binary of binary_op * expression * expression * line_number
     | Grouping of expression
 
+type statement =
+    | Expression of expression
+    | Print of expression
+
 (** Serialize an `expression` AST as an s-expression. *)
 (* TODO(dlsmith): Probably shouldn't live in `Parsing` module. *)
 val to_sexp : expression -> string
@@ -44,21 +48,14 @@ exception Parse_error of string
 
 type token_list = Token.token list
 
-type partial_parse = (expression * token_list, string * token_list) result
+val parse_expression :
+    token_list ->
+        (expression * token_list, string * token_list) result
 
-type expression_parser = token_list -> partial_parse
+val parse_statement :
+    token_list ->
+        (statement * token_list, string * token_list) result
 
-val parse_primary : expression_parser
-
-val parse_unary : expression_parser
-
-(* TODO(dlsmith): I don't actually want to expose this from the module, but
-   for now I want to keep the signature explicit. *)
-val parse_left_assoc_binary_ops :
-    subparser:expression_parser ->
-        (Token.token_type -> binary_op option) ->
-            token_list ->
-                partial_parse
-
-val parse_expression : expression_parser
-
+val parse_program :
+    token_list ->
+        (statement, string) result list

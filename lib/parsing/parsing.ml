@@ -30,11 +30,14 @@ type expression =
     | Binary of binary_op * expression * expression * line_number
     | Grouping of expression
 
+type statement =
+    | Expression of expression
+    | Print of expression
+
 let rec to_sexp expression =
     match expression with
     | Literal literal ->
-        begin
-            match literal with
+        begin match literal with
             | Number num -> Float.to_string num
             | String str -> str
             | True -> "true"
@@ -71,10 +74,6 @@ let rec to_sexp expression =
 exception Parse_error of string
 
 type token_list = Token.token list
-
-type partial_parse = (expression * token_list, string * token_list) result
-
-type expression_parser = token_list -> partial_parse
 
 let head = function
     | [] -> None
@@ -202,3 +201,33 @@ and parse_equality tokens =
 (* expression -> equality *)
 and parse_expression tokens =
     parse_equality tokens
+
+let parse_statement_variant tokens create_stmt =
+    let* expr, tokens = parse_expression tokens in
+    let token, tokens = uncons tokens in
+    match Option.map get_token_type token with
+    | Some Token.Semicolon -> Ok (create_stmt expr, tokens)
+    | _ -> Error ("Expect ';' after value.", tokens)
+
+(* statement -> ( "print" expression | expression ) ";" ; *)
+let parse_statement tokens =
+    match Option.map get_token_type (head tokens) with
+    | Some Token.Print ->
+        parse_statement_variant
+            (tail tokens)
+            (fun expr -> Print expr)
+    | _ ->
+        parse_statement_variant
+            tokens
+            (fun expr -> Expression expr)
+
+(* program -> statement* EOF ; *)
+let rec parse_program tokens =
+    match tokens with
+    | [ Token.{ token_type=EOF; _ } ] -> []
+    | tokens ->
+        let stmt_result, tokens = match parse_statement tokens with
+        | Ok (stmt, tokens) -> Ok stmt, tokens
+        | Error (message, tokens) -> Error message, tokens
+        in
+        stmt_result::(parse_program tokens)
