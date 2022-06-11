@@ -64,3 +64,19 @@ let rec evaluate_expression = function
         | BangEqual, l, r -> Ok ((is_equal l r) |> not |> of_bool)
         | _ -> error "Operands must be numbers." line
         end
+
+let evaluate_statement = function
+    | Expression expr ->
+        evaluate_expression expr |> Result.map (fun _ -> ())
+    | Print expr ->
+        let* value = evaluate_expression expr in
+        Literal value |> to_sexp |> print_endline;
+        Ok ()
+
+let rec evaluate_program stmts =
+    let stmt, stmts = Util.uncons stmts in
+    match stmt with
+    | None -> Ok ()
+    | Some s ->
+        let* _ = evaluate_statement s in
+        evaluate_program stmts

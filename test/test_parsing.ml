@@ -128,6 +128,24 @@ let test_parse_print_statement () =
     | Error (message, _) -> Alcotest.fail ("Parsing error: " ^ message)
     | _ -> Alcotest.fail "Unexpected parse"
 
+let test_parse_incomplete_statement () =
+    let open Token in
+    let tokens = [
+        { token_type=Number 1.; lexeme="1.0"; line=0; };
+        { token_type=Plus; lexeme="+"; line=0; };
+        { token_type=Number 2.; lexeme="2.0"; line=0; };
+        (* No semicolon *)
+        { token_type=EOF; lexeme=""; line=0; };
+    ] in
+    match Parsing.parse_statement tokens with
+    | Error (message, [ { token_type=EOF; _ } ]) ->
+        Alcotest.(check string)
+            "Same error"
+            "Expect ';' after value."
+            message
+    | Error (_, []) -> Alcotest.fail "Expected EOF token to remain"
+    | _ -> Alcotest.fail "Expected parsing error"
+
 let test_parse_multiple_statements () =
     let open Token in
     let expected_expr1 = "(+ 1. 2.)" in
@@ -192,6 +210,10 @@ let () =
                 "Print statement"
                 `Quick
                 test_parse_print_statement;
+                Alcotest.test_case
+                "Incomplete statement"
+                `Quick
+                test_parse_incomplete_statement;
             ]);
             ("Parse program", [
                 Alcotest.test_case

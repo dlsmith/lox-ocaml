@@ -188,7 +188,7 @@ let test_multi_token_scan () =
     let tokens =
         source
         |> Scanning.scan_tokens
-        |> Seq.map Result.get_ok
+        |> Seq.map Util.get_ok
         |> List.of_seq in
     Alcotest.(check (list token_testable))
         "Tokens equal"

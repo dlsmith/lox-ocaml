@@ -75,21 +75,6 @@ exception Parse_error of string
 
 type token_list = Token.token list
 
-let head = function
-    | [] -> None
-    | [x] -> Some x
-    | x::_ -> Some x
-
-let tail = function
-    | [] -> []
-    | [_] -> []
-    | _::xs -> xs
-
-let uncons = function
-    | [] -> None, []
-    | [x] -> Some x, []
-    | x::xs -> Some x, xs
-
 let get_token_type token =
     Token.(token.token_type)
 
@@ -98,7 +83,7 @@ let (let*) = Result.bind
 let rec parse_left_assoc_binary_ops ~subparser match_op tokens =
     let* expr, tokens = subparser tokens in
     let op_line =
-        Option.bind (head tokens) (fun token ->
+        Option.bind (Util.head tokens) (fun token ->
             token
             |> get_token_type
             |> match_op
@@ -112,14 +97,14 @@ let rec parse_left_assoc_binary_ops ~subparser match_op tokens =
             parse_left_assoc_binary_ops
                 ~subparser
                 match_op
-                (tail tokens)
+                (Util.tail tokens)
         in
         Ok (Binary (op, expr, right, LineNumber line), tokens)
 
 (* primary ->
     NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ; *)
 let rec parse_primary tokens =
-    let token, tokens = uncons tokens in
+    let token, tokens = Util.uncons tokens in
     match Option.map get_token_type token with
     | Some Token.False -> Ok (Literal False, tokens)
     | Some Token.True -> Ok (Literal True, tokens)
@@ -129,7 +114,7 @@ let rec parse_primary tokens =
     | Some Token.LeftParen ->
         begin
             let* expr, tokens = parse_expression tokens in
-            let token, tokens = uncons tokens in
+            let token, tokens = Util.uncons tokens in
             match Option.map get_token_type token with
             | Some Token.RightParen -> Ok (Grouping expr, tokens)
             | _ -> Error ("Expect ')' after expression.", tokens)
@@ -139,7 +124,7 @@ let rec parse_primary tokens =
 (* unary -> ( "!" | "-" ) unary | primary ; *)
 and parse_unary tokens =
     let op_line =
-        Option.bind (head tokens) (fun token ->
+        Option.bind (Util.head tokens) (fun token ->
             match get_token_type token with
             | Token.Bang -> Some (LogicalNot, token.line)
             | Token.Minus -> Some (Negate, token.line)
@@ -149,7 +134,7 @@ and parse_unary tokens =
     match op_line with
     | None -> parse_primary tokens
     | Some (op, line) ->
-        let* right, tokens = parse_unary (tail tokens) in
+        let* right, tokens = parse_unary (Util.tail tokens) in
         Ok (Unary (op, right, LineNumber line), tokens)
 
 (* factor -> unary ( ( "/" | "*" ) unary )* ; *)
@@ -204,17 +189,17 @@ and parse_expression tokens =
 
 let parse_statement_variant tokens create_stmt =
     let* expr, tokens = parse_expression tokens in
-    let token, tokens = uncons tokens in
+    let token = Util.head tokens in
     match Option.map get_token_type token with
-    | Some Token.Semicolon -> Ok (create_stmt expr, tokens)
+    | Some Token.Semicolon -> Ok (create_stmt expr, Util.tail tokens)
     | _ -> Error ("Expect ';' after value.", tokens)
 
 (* statement -> ( "print" expression | expression ) ";" ; *)
 let parse_statement tokens =
-    match Option.map get_token_type (head tokens) with
+    match Option.map get_token_type (Util.head tokens) with
     | Some Token.Print ->
         parse_statement_variant
-            (tail tokens)
+            (Util.tail tokens)
             (fun expr -> Print expr)
     | _ ->
         parse_statement_variant

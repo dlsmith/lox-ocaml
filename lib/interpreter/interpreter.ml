@@ -1,10 +1,24 @@
-let (let*) = Result.bind
+let scan_or_error source =
+    try
+        source
+        |> Scanning.scan_tokens
+        (* TODO(dlsmith): Consume `Seq` directly in parsing? *)
+        |> List.of_seq
+        (* TODO(dlsmith): Surface all errors. *)
+        |> List.map Util.get_ok
+        |> Result.ok
+    with Invalid_argument message -> Error message
 
 let run source =
-    let* expr = Util.scan_and_parse source in
-    let* literal = Evaluation.evaluate_expression expr in
-    print_endline (Parsing.to_sexp (Parsing.Literal literal));
-    Ok ()
+    let (let*) = Result.bind in
+    let* tokens = scan_or_error source in
+    try
+        tokens
+        |> Parsing.parse_program
+        (* TODO(dlsmith): Surface all errors. *)
+        |> List.map Util.get_ok
+        |> Evaluation.evaluate_program
+    with Invalid_argument message -> Error message
 
 let report line where message =
     Printf.printf "[line %i] Error %s: %s" line where message
