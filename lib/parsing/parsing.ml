@@ -213,4 +213,4 @@ let rec parse_program tokens =
         | Ok (stmt, tokens) -> Ok stmt, tokens
         | Error (message, tokens) -> Error message, tokens
         in
-        stmt_result::(parse_program tokens)
+        stmt_result :: (parse_program tokens)
