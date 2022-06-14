@@ -279,7 +279,7 @@ let rec synchronize tokens =
     (* Otherwise, continue *)
     | _ -> synchronize (Util.tail tokens)
 
-(* program -> statement* EOF ; *)
+(* program -> declaration* EOF ; *)
 let rec parse_program tokens =
     match tokens with
     | [ Token.{ token_type=EOF; _ } ] -> []
