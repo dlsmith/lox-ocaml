@@ -53,7 +53,6 @@ type token_type =
    *)
 type token = {
     token_type: token_type;
-    lexeme: string;
     line: int;
 } [@@deriving show, eq]
 

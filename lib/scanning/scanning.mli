@@ -23,9 +23,6 @@ val scan_token :
         position ->
             (Token.token_type * position, string * position) result
 
-val create_token :
-    string -> position -> Token.token_type -> (Token.token, string) result
-
 val update_start : position -> position
 
 val scan_and_extract_token :

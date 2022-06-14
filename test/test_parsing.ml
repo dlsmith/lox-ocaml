@@ -62,49 +62,49 @@ let check_parse_ok tokens expected_sexp =
 let test_arithmetic_precedence () =
     let open Token in
     let tokens = [
-        { token_type=Number 1.; lexeme="1.0"; line=0; };
-        { token_type=Plus; lexeme="+"; line=0; };
-        { token_type=Number 2.; lexeme="2.0"; line=0; };
-        { token_type=Star; lexeme="*"; line=0; };
-        { token_type=Number 3.; lexeme="3.0"; line=0; };
+        { token_type=Number 1.; line=0; };
+        { token_type=Plus; line=0; };
+        { token_type=Number 2.; line=0; };
+        { token_type=Star; line=0; };
+        { token_type=Number 3.; line=0; };
     ] in
     check_parse_ok tokens "(+ 1. (* 2. 3.))"
 
 let test_unary_binary_grouping () =
     let open Token in
     let tokens = [
-        { token_type=LeftParen; lexeme="("; line=0; };
-        { token_type=Number 1.; lexeme="1.0"; line=0; };
-        { token_type=Plus; lexeme="+"; line=0; };
-        { token_type=Number 2.; lexeme="2.0"; line=0; };
-        { token_type=RightParen; lexeme="("; line=0; };
-        { token_type=Star; lexeme="*"; line=0; };
-        { token_type=Minus; lexeme="-"; line=0; };
-        { token_type=Number 3.; lexeme="3.0"; line=0; };
-        { token_type=Less; lexeme="<"; line=0; };
-        { token_type=Number 0.; lexeme="0.0"; line=0; };
-        { token_type=EqualEqual; lexeme="=="; line=0; };
-        { token_type=True; lexeme="true"; line=0; };
+        { token_type=LeftParen; line=0; };
+        { token_type=Number 1.; line=0; };
+        { token_type=Plus; line=0; };
+        { token_type=Number 2.; line=0; };
+        { token_type=RightParen; line=0; };
+        { token_type=Star; line=0; };
+        { token_type=Minus; line=0; };
+        { token_type=Number 3.; line=0; };
+        { token_type=Less; line=0; };
+        { token_type=Number 0.; line=0; };
+        { token_type=EqualEqual; line=0; };
+        { token_type=True; line=0; };
     ] in
     check_parse_ok tokens "(== (< (* (group (+ 1. 2.)) (- 3.)) 0.) true)"
 
 let test_unclosed_grouping () =
     let open Token in
     let tokens = [
-        { token_type=Number 1.; lexeme="1.0"; line=0; };
-        { token_type=Plus; lexeme="+"; line=0; };
-        { token_type=LeftParen; lexeme="("; line=0; };
-        { token_type=Number 2.; lexeme="2.0"; line=0; };
-        { token_type=Star; lexeme="*"; line=0; };
-        { token_type=Number 3.; lexeme="3.0"; line=0; };
+        { token_type=Number 1.; line=0; };
+        { token_type=Plus; line=0; };
+        { token_type=LeftParen; line=0; };
+        { token_type=Number 2.; line=0; };
+        { token_type=Star; line=0; };
+        { token_type=Number 3.; line=0; };
     ] in
     check_parse_error tokens "Expect ')' after expression."
 
 let test_partial_binary_expression () =
     let open Token in
     let tokens = [
-        { token_type=Number 1.; lexeme="1.0"; line=0; };
-        { token_type=Plus; lexeme="+"; line=0; };
+        { token_type=Number 1.; line=0; };
+        { token_type=Plus; line=0; };
     ] in
     check_parse_error tokens "Expect expression."
 
@@ -113,9 +113,9 @@ let test_token_not_consumed_on_error () =
         Alcotest.testable Token.pp_token Token.equal_token in
     let open Token in
     let tokens = [
-        { token_type=Number 1.; lexeme="1.0"; line=0; };
-        { token_type=Plus; lexeme="+"; line=0; };
-        { token_type=EOF; lexeme=""; line=0; };
+        { token_type=Number 1.; line=0; };
+        { token_type=Plus; line=0; };
+        { token_type=EOF; line=0; };
     ] in
     check_parse
         tokens
@@ -127,7 +127,7 @@ let test_token_not_consumed_on_error () =
                 message;
             Alcotest.(check (list token_testable))
                 "Same tokens"
-                [ { token_type=EOF; lexeme=""; line=0; } ]
+                [ { token_type=EOF; line=0; } ]
                 rest_tokens
         )
 
@@ -135,12 +135,12 @@ let test_parse_print_statement () =
     let open Token in
     let expected_expr = "(+ 1. 2.)" in
     let tokens = [
-        { token_type=Print; lexeme="print"; line=0; };
-        { token_type=Number 1.; lexeme="1.0"; line=0; };
-        { token_type=Plus; lexeme="+"; line=0; };
-        { token_type=Number 2.; lexeme="2.0"; line=0; };
-        { token_type=Semicolon; lexeme=";"; line=0; };
-        { token_type=EOF; lexeme=""; line=0; };
+        { token_type=Print; line=0; };
+        { token_type=Number 1.; line=0; };
+        { token_type=Plus; line=0; };
+        { token_type=Number 2.; line=0; };
+        { token_type=Semicolon; line=0; };
+        { token_type=EOF; line=0; };
     ] in
     match Parsing.parse_statement tokens with
     | Ok (Parsing.Print expr, [ { token_type=EOF; _ } ]) ->
@@ -156,14 +156,14 @@ let test_parse_var_declaration () =
     let var_name = "some_name" in
     let expected_init_expr = "(+ 1. 2.)" in
     let tokens = [
-        { token_type=Var; lexeme="var"; line=0; };
-        { token_type=Identifier var_name; lexeme=var_name; line=0; };
-        { token_type=Equal; lexeme="="; line=0; };
-        { token_type=Number 1.; lexeme="1.0"; line=0; };
-        { token_type=Plus; lexeme="+"; line=0; };
-        { token_type=Number 2.; lexeme="2.0"; line=0; };
-        { token_type=Semicolon; lexeme=";"; line=0; };
-        { token_type=EOF; lexeme=""; line=0; };
+        { token_type=Var; line=0; };
+        { token_type=Identifier var_name; line=0; };
+        { token_type=Equal; line=0; };
+        { token_type=Number 1.; line=0; };
+        { token_type=Plus; line=0; };
+        { token_type=Number 2.; line=0; };
+        { token_type=Semicolon; line=0; };
+        { token_type=EOF; line=0; };
     ]
     in
     match Parsing.parse_declaration tokens with
@@ -183,11 +183,11 @@ let test_parse_var_declaration () =
 let test_parse_incomplete_statement () =
     let open Token in
     let tokens = [
-        { token_type=Number 1.; lexeme="1.0"; line=0; };
-        { token_type=Plus; lexeme="+"; line=0; };
-        { token_type=Number 2.; lexeme="2.0"; line=0; };
+        { token_type=Number 1.; line=0; };
+        { token_type=Plus; line=0; };
+        { token_type=Number 2.; line=0; };
         (* No semicolon *)
-        { token_type=EOF; lexeme=""; line=0; };
+        { token_type=EOF; line=0; };
     ] in
     match Parsing.parse_statement tokens with
     | Error (message, [ { token_type=EOF; _ } ]) ->
@@ -203,16 +203,16 @@ let test_parse_multiple_statements () =
     let expected_expr1 = "(+ 1. 2.)" in
     let expected_expr2 = "(- 3. 4.)" in
     let tokens = [
-        { token_type=Number 1.; lexeme="1.0"; line=0; };
-        { token_type=Plus; lexeme="+"; line=0; };
-        { token_type=Number 2.; lexeme="2.0"; line=0; };
-        { token_type=Semicolon; lexeme=";"; line=0; };
-        { token_type=Print; lexeme="print"; line=0; };
-        { token_type=Number 3.; lexeme="3.0"; line=0; };
-        { token_type=Minus; lexeme="-"; line=0; };
-        { token_type=Number 4.; lexeme="4.0"; line=0; };
-        { token_type=Semicolon; lexeme=";"; line=0; };
-        { token_type=EOF; lexeme=""; line=0; };
+        { token_type=Number 1.; line=0; };
+        { token_type=Plus; line=0; };
+        { token_type=Number 2.; line=0; };
+        { token_type=Semicolon; line=0; };
+        { token_type=Print; line=0; };
+        { token_type=Number 3.; line=0; };
+        { token_type=Minus; line=0; };
+        { token_type=Number 4.; line=0; };
+        { token_type=Semicolon; line=0; };
+        { token_type=EOF; line=0; };
     ] in
     let stmt_results = Parsing.parse_program tokens in
     (* TODO(dlsmith): Refactor to clean this up a bit, so we're not pattern

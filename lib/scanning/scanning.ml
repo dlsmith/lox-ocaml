@@ -48,30 +48,6 @@ let parse_number_literal source pos =
     | exception Failure _ -> Error "Failed to parse number."
     | number -> Ok number
 
-(* TODO(dlsmith): There's something less than ideal here in that you can
- pass arguments that are inconsistent. E.g., pass a one-character token type
- with a multi-character `position`. Maybe it is better to do the extraction
- immediately when the type is identified. (This is how things started, but
- the code was messier.)
-
- The reason I ended up abandoning this was to enable the recursion for
- handling whitespace. When working with positions, we can recurse over
- characters to ignore them until we end up at a token. Without this, we'd
- need to sometimes return nothing, and let the caller handle the skipping
- logic. This isn't a huge burden, but it's a nice API that says, "just give
- me the next token and tell me where you left off."
-
- Maybe we could use smart constructors, i.e., hide the underlying record type
- and construct via utility functions in the `Token` module, e.g., that extract
- substrings from the source string given a `position`.
-*)
-let create_token source pos token_type =
-    Ok Token.{
-        token_type=token_type;
-        lexeme=substring source pos.start pos.current;
-        line=pos.line
-    }
-
 let rec ignore_line source pos =
     let c, pos = advance source pos in
     match c with
@@ -197,8 +173,7 @@ let scan_and_extract_token source pos =
         | Error (message, pos) -> Error message, pos
     in
     token_type_result
-    |> Result.map (create_token source pos)
-    |> Result.join
+    |> Result.map (fun tt -> Token.{ token_type=tt; line=pos.line })
     |> result_attach (update_start pos)
 
 let rec scan_tokens source ?(pos=init()) =
