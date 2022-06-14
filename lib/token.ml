@@ -23,7 +23,7 @@ type token_type =
     | LessEqual
 
     (* Literals. *)
-    | Identifier
+    | Identifier of string
     | String of string
     | Number of float
 

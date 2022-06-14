@@ -1,6 +1,7 @@
 type literal =
     | Number of float
     | String of string
+    | Variable of string
     | True
     | False
     | Nil
@@ -33,6 +34,7 @@ type expression =
 type statement =
     | Expression of expression
     | Print of expression
+    | VariableDeclaration of string * (expression option)
 
 let rec to_sexp expression =
     match expression with
@@ -40,6 +42,7 @@ let rec to_sexp expression =
         begin match literal with
             | Number num -> Float.to_string num
             | String str -> str
+            | Variable name -> Printf.sprintf "(var %s)" name
             | True -> "true"
             | False -> "false"
             | Nil -> "nil"
@@ -111,6 +114,7 @@ let rec parse_primary tokens =
     | Some Token.Nil -> Ok (Literal Nil, rest_tokens)
     | Some Token.Number num -> Ok (Literal (Number num), rest_tokens)
     | Some Token.String str  -> Ok (Literal (String str), rest_tokens)
+    | Some Token.Identifier id -> Ok (Literal (Variable id), rest_tokens)
     | Some Token.LeftParen ->
         let* expr, rest_tokens = parse_expression rest_tokens in
         begin match Option.map get_token_type (Util.head rest_tokens) with
@@ -204,13 +208,69 @@ let parse_statement tokens =
             tokens
             (fun expr -> Expression expr)
 
+let consume tokens fn =
+    let* token = tokens |> Util.head |> Option.to_result ~none:tokens in
+    match fn token with
+    | Some v -> Ok (v, Util.tail tokens)
+    | None -> Error tokens
+
+let match_type token_type token =
+    if get_token_type token == token_type then Some token else None
+
+let match_identifier = function
+    | Token.{ token_type=Identifier name; _ } -> Some name
+    | _ -> None
+
+(* declaration -> ( "var" IDENTIFIER ( "=" expression )? ) | statement ";" ; *)
+let parse_declaration tokens =
+    (* TODO(dlsmith): What an unreadable mess. A couple of thoughts:
+
+        - The `Error` case from `consume` is only sometimes an error. We just
+          want to carry the remaining tokens, and we can't do that with an
+          `Option`, which is a better fit for what's going on. We could return
+          a `'a option * Token.token list`, but then we can't pipeline.
+        - The type of `consume`'s result also doesn't play well with the result
+          we ultimately want to return from this function, so we're limited
+          in the extent to which we can use `let *`, which definitely harms
+          readability.
+
+        Together, these point to using a custom type in place of Result/Option,
+        and using `let*` to allow us to bind in a way that's compatible with
+        this type, but will also produce the correct error format in the case
+        of early exit.
+
+    *)
+    match consume tokens (match_type Token.Var) with
+    | Error tokens -> parse_statement tokens
+    | Ok (_, tokens) ->
+        match consume tokens match_identifier with
+        | Ok (var_name, tokens) ->
+            let* init_expr, tokens =
+                match consume tokens (match_type Token.Equal) with
+                | Error tokens -> Ok (None, tokens)
+                | Ok (_, tokens) ->
+                    let* expr, tokens = parse_expression tokens in
+                    Ok (Some expr, tokens)
+            in
+            begin match consume tokens (match_type Token.Semicolon) with
+            | Error tokens ->
+                Error ("Expect ';' after variable declaration.", tokens)
+            | Ok (_, tokens) ->
+                Ok (VariableDeclaration (var_name, init_expr), tokens)
+            end
+        | Error _ -> Error ("Expect variable name.", tokens)
+
 (* program -> statement* EOF ; *)
 let rec parse_program tokens =
     match tokens with
     | [ Token.{ token_type=EOF; _ } ] -> []
     | tokens ->
-        let stmt_result, tokens = match parse_statement tokens with
+        let stmt_result, tokens = match parse_declaration tokens with
         | Ok (stmt, tokens) -> Ok stmt, tokens
-        | Error (message, tokens) -> Error message, tokens
+        | Error (message, tokens) ->
+            (* TODO(dlsmith): Synchronize. The book actually synchronizes inside
+               `parse_declaration` if an error occurs (via exception), though
+               it makes more sense to me that it goes here. *)
+            Error message, tokens
         in
         stmt_result :: (parse_program tokens)

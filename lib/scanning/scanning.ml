@@ -181,9 +181,9 @@ and consume_char source pos = function
     (* Identifier *)
     | c when is_alpha c ->
         let pos = scan_identifier_token source pos in
-        substring source pos.start pos.current
-        |> Token.as_keyword
-        |> Option.value ~default:Token.Identifier
+        let identifier = substring source pos.start pos.current in
+        Token.as_keyword identifier
+        |> Option.value ~default:(Token.Identifier identifier)
         |> Result.ok
         |> result_attach pos
 

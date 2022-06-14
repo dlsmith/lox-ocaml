@@ -151,6 +151,35 @@ let test_parse_print_statement () =
     | Error (message, _) -> Alcotest.fail ("Parsing error: " ^ message)
     | _ -> Alcotest.fail "Unexpected parse"
 
+let test_parse_var_declaration () =
+    let open Token in
+    let var_name = "some_name" in
+    let expected_init_expr = "(+ 1. 2.)" in
+    let tokens = [
+        { token_type=Var; lexeme="var"; line=0; };
+        { token_type=Identifier var_name; lexeme=var_name; line=0; };
+        { token_type=Equal; lexeme="="; line=0; };
+        { token_type=Number 1.; lexeme="1.0"; line=0; };
+        { token_type=Plus; lexeme="+"; line=0; };
+        { token_type=Number 2.; lexeme="2.0"; line=0; };
+        { token_type=Semicolon; lexeme=";"; line=0; };
+        { token_type=EOF; lexeme=""; line=0; };
+    ]
+    in
+    match Parsing.parse_declaration tokens with
+    | Ok (Parsing.VariableDeclaration (name, Some init_expr),
+          [ { token_type=EOF; _ } ]) ->
+        Alcotest.(check string)
+            "Same string"
+            var_name
+            name;
+        Alcotest.(check string)
+            "Same string"
+            expected_init_expr
+            (Parsing.to_sexp init_expr)
+    | Error (message, _) -> Alcotest.fail ("Parsing error: " ^ message)
+    | _ -> Alcotest.fail "Unexpected parse"
+
 let test_parse_incomplete_statement () =
     let open Token in
     let tokens = [
@@ -241,6 +270,11 @@ let () =
                 "Incomplete statement"
                 `Quick
                 test_parse_incomplete_statement;
+                Alcotest.test_case
+                "Variable declaration"
+                `Quick
+                test_parse_var_declaration;
+                (* TODO(dlsmith): Unintialized var and error cases. *)
             ]);
             ("Parse program", [
                 Alcotest.test_case

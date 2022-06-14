@@ -83,7 +83,7 @@ let test_keyword_and_identifier_with_overlap () =
         line=0
     };
     check_scan_token_eq "orchid" ~expected:Token.{
-        token_type=Token.Identifier;
+        token_type=Token.Identifier "orchid";
         lexeme="orchid";
         line=0
     }
@@ -168,13 +168,13 @@ let test_multi_token_scan () =
     let open Token in
     let expected_tokens = [
         { token_type=Var; lexeme="var"; line=0; };
-        { token_type=Identifier; lexeme="v"; line=0; };
+        { token_type=Identifier "v"; lexeme="v"; line=0; };
         { token_type=Equal; lexeme="="; line=0; };
         { token_type=Number 1.2; lexeme="1.2"; line=0; };
         { token_type=Semicolon; lexeme=";"; line=0; };
         { token_type=If; lexeme="if"; line=3; };
         { token_type=LeftParen; lexeme="("; line=3; };
-        { token_type=Identifier; lexeme="v"; line=3; };
+        { token_type=Identifier "v"; lexeme="v"; line=3; };
         { token_type=GreaterEqual; lexeme=">="; line=3; };
         { token_type=Number 0.0; lexeme="0"; line=3; };
         { token_type=RightParen; lexeme=")"; line=3; };

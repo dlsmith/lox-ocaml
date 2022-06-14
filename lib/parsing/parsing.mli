@@ -1,6 +1,7 @@
 type literal =
     | Number of float
     | String of string
+    | Variable of string
     | True
     | False
     | Nil
@@ -39,6 +40,7 @@ type expression =
 type statement =
     | Expression of expression
     | Print of expression
+    | VariableDeclaration of string * (expression option)
 
 (** Serialize an `expression` AST as an s-expression. *)
 (* TODO(dlsmith): Probably shouldn't live in `Parsing` module. *)
@@ -53,6 +55,10 @@ val parse_expression :
         (expression * token_list, string * token_list) result
 
 val parse_statement :
+    token_list ->
+        (statement * token_list, string * token_list) result
+
+val parse_declaration :
     token_list ->
         (statement * token_list, string * token_list) result
 

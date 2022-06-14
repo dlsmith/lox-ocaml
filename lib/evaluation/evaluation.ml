@@ -72,6 +72,8 @@ let evaluate_statement = function
         let* value = evaluate_expression expr in
         Literal value |> to_sexp |> print_endline;
         Ok ()
+    | VariableDeclaration (_, _) ->
+        raise (Failure "Not implemented!")
 
 let rec evaluate_program stmts =
     let stmt, stmts = Util.uncons stmts in
