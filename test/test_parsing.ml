@@ -275,6 +275,7 @@ let () =
                 `Quick
                 test_parse_var_declaration;
                 (* TODO(dlsmith): Unintialized var and error cases. *)
+                (* TODO(dlsmith): Synchronization. *)
             ]);
             ("Parse program", [
                 Alcotest.test_case

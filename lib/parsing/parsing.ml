@@ -260,6 +260,25 @@ let parse_declaration tokens =
             end
         | Error _ -> Error ("Expect variable name.", tokens)
 
+let rec synchronize tokens =
+    match Option.map get_token_type (Util.head tokens) with
+    (* We've run out of tokens *)
+    | None
+    | Some Token.EOF
+    (* We're about to start a new statement *)
+    | Some Token.Class
+    | Some Token.Fun
+    | Some Token.Var
+    | Some Token.For
+    | Some Token.If
+    | Some Token.While
+    | Some Token.Print
+    | Some Token.Return -> tokens
+    (* We've finished a statement. *)
+    | Some Token.Semicolon -> (Util.tail tokens)
+    (* Otherwise, continue *)
+    | _ -> synchronize (Util.tail tokens)
+
 (* program -> statement* EOF ; *)
 let rec parse_program tokens =
     match tokens with
@@ -267,10 +286,6 @@ let rec parse_program tokens =
     | tokens ->
         let stmt_result, tokens = match parse_declaration tokens with
         | Ok (stmt, tokens) -> Ok stmt, tokens
-        | Error (message, tokens) ->
-            (* TODO(dlsmith): Synchronize. The book actually synchronizes inside
-               `parse_declaration` if an error occurs (via exception), though
-               it makes more sense to me that it goes here. *)
-            Error message, tokens
+        | Error (message, tokens) -> Error message, (synchronize tokens)
         in
         stmt_result :: (parse_program tokens)
