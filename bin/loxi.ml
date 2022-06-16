@@ -11,7 +11,9 @@ let anon_fun path =
 
 let handle_result result =
     match result with
-    | Ok _ -> exit(0)
+    | Ok output ->
+        let _ = Option.map print_endline output in
+        exit(0)
     | Error message ->
         print_endline message; exit(65)
 
@@ -21,4 +23,3 @@ let () =
     | path -> path |> Entrypoint.interpret_file |> handle_result
     | exception Failure _ ->
         Entrypoint.interpret_interactive () |> handle_result
-

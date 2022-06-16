@@ -1,5 +1,16 @@
 open Parsing
 
+module Env = struct
+    type t = (string * literal) list
+    let make () = []
+    let define env key value =
+        (key, value) :: env
+    let get env key =
+        match List.assoc_opt key env with
+        | Some v -> Ok v
+        | None -> Error (Printf.sprintf "Undefined variable '%s'." key)
+end
+
 let (let*) = Result.bind
 
 let is_truthy (value: literal) : bool =
@@ -25,10 +36,11 @@ let of_bool (value : bool) : literal =
 let error message line =
     Error (Printf.sprintf "[line %i] Error: %s" line message)
 
-let rec evaluate_expression = function
+let rec evaluate_expression env = function
+    | Literal (Variable name) -> Env.get env name
     | Literal value -> Ok value
     | Unary (op, subexpr, LineNumber line) ->
-        let* value = evaluate_expression subexpr in
+        let* value = evaluate_expression env subexpr in
         begin match op with
         | Negate ->
             begin match value with
@@ -37,10 +49,10 @@ let rec evaluate_expression = function
             end
         | LogicalNot -> Ok (value |> is_truthy |> not |> of_bool)
         end
-    | Grouping subexpr -> evaluate_expression subexpr
+    | Grouping subexpr -> evaluate_expression env subexpr
     | Binary (op, subexpr1, subexpr2, LineNumber line) ->
-        let* l = evaluate_expression subexpr1 in
-        let* r = evaluate_expression subexpr2 in
+        let* l = evaluate_expression env subexpr1 in
+        let* r = evaluate_expression env subexpr2 in
         begin match (op, l, r) with
         | Plus, l, r ->
             begin match (l, r) with
@@ -65,20 +77,33 @@ let rec evaluate_expression = function
         | _ -> error "Operands must be numbers." line
         end
 
-let evaluate_statement = function
-    | Expression expr ->
-        evaluate_expression expr |> Result.map (fun _ -> ())
-    | Print expr ->
-        let* value = evaluate_expression expr in
-        Literal value |> to_sexp |> print_endline;
-        Ok ()
-    | VariableDeclaration (_, _) ->
-        raise (Failure "Not implemented!")
-
-let rec evaluate_program stmts =
-    let stmt, stmts = Util.uncons stmts in
+let evaluate_statement env stmt =
     match stmt with
-    | None -> Ok ()
-    | Some s ->
-        let* _ = evaluate_statement s in
-        evaluate_program stmts
+    | Expression expr ->
+        let* value = evaluate_expression env expr in
+        Ok (Some value, env)
+    | Print expr ->
+        let* value = evaluate_expression env expr in
+        Literal value |> to_sexp |> print_endline;
+        Ok (None, env)
+    | VariableDeclaration (name, init_expr) ->
+        let* value = match init_expr with
+        | Some expr -> evaluate_expression env expr
+        | None -> Ok Parsing.Nil
+        in
+        Ok (None, Env.define env name value)
+
+let rec evaluate_program env stmts =
+    match stmts with
+    (* In practice, this base case won't be executed unless the top-level call
+       to `execute_program` passes an empty list of statements *)
+    | [] -> Ok None
+    | stmt :: stmts ->
+        let* output, env = evaluate_statement env stmt in
+        (* Return the output if this is the last statement. This enables our
+           programs to produce values rather than purely executing for side
+           effects.
+
+           This is an intentional diversion from the book, the primary
+           motivation being to simplify testing. May revisit later. *)
+        match stmts with [] -> Ok output | _ -> evaluate_program env stmts

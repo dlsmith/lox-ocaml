@@ -208,11 +208,16 @@ let parse_statement tokens =
             tokens
             (fun expr -> Expression expr)
 
-let consume tokens fn =
-    let* token = tokens |> Util.head |> Option.to_result ~none:tokens in
-    match fn token with
-    | Some v -> Ok (v, Util.tail tokens)
-    | None -> Error tokens
+(* Consume a single token if it passes the given predicate.
+
+   `pred` is a function that returns `'a option`, so it acts both as a
+   predicate and a mapping function.
+
+ *)
+let consume tokens pred =
+    match Option.bind (Util.head tokens) pred with
+    | Some v -> Some v, (Util.tail tokens)
+    | None -> (None, tokens)
 
 let match_type token_type token =
     if get_token_type token == token_type then Some token else None
@@ -241,24 +246,27 @@ let parse_declaration tokens =
 
     *)
     match consume tokens (match_type Token.Var) with
-    | Error tokens -> parse_statement tokens
-    | Ok (_, tokens) ->
-        match consume tokens match_identifier with
-        | Ok (var_name, tokens) ->
+    | Some _, tokens ->
+        begin match consume tokens match_identifier with
+        | Some var_name, tokens ->
+            (* Parse the initializer expression if given *)
             let* init_expr, tokens =
                 match consume tokens (match_type Token.Equal) with
-                | Error tokens -> Ok (None, tokens)
-                | Ok (_, tokens) ->
+                | None, tokens -> Ok (None, tokens)
+                | Some _, tokens ->
                     let* expr, tokens = parse_expression tokens in
                     Ok (Some expr, tokens)
             in
+            (* Make sure we finish with a semicolon before returning *)
             begin match consume tokens (match_type Token.Semicolon) with
-            | Error tokens ->
+            | None, tokens ->
                 Error ("Expect ';' after variable declaration.", tokens)
-            | Ok (_, tokens) ->
+            | Some _, tokens ->
                 Ok (VariableDeclaration (var_name, init_expr), tokens)
             end
-        | Error _ -> Error ("Expect variable name.", tokens)
+        | None, tokens -> Error ("Expect variable name.", tokens)
+        end
+    | None, tokens -> parse_statement tokens
 
 let rec synchronize tokens =
     match Option.map get_token_type (Util.head tokens) with

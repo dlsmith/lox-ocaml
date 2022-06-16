@@ -10,7 +10,8 @@ let evaluate_expr source =
         |> Result.map_error (fun (message, _) -> message)
     in
     match rest_tokens with
-    | [ { token_type=Token.EOF; _} ] -> Evaluation.evaluate_expression expr
+    | [ { token_type=Token.EOF; _} ] ->
+        Evaluation.(evaluate_expression (Env.make()) expr)
     | _ -> Error "Expected a single expression"
 
 let test_evaluate_valid_expression () =
@@ -41,6 +42,13 @@ let test_evaluate_invalid_operands () =
         (source |> evaluate_expr |> Result.get_error)
         "[line 0] Error: Operands must be numbers."
 
+let test_simple_program_with_variable () =
+    let source = "var a = \"one\" + \"two\"; a + \"three\";" in
+    Alcotest.(check literal_testable)
+        "Same value"
+        (source |> Interpreter.run |> Util.get_ok |> Option.get)
+        (Parsing.String "onetwothree")
+
 let () =
     Alcotest.run "Evaluation test suite"
         [
@@ -61,5 +69,11 @@ let () =
                 "Non-numeric operands"
                 `Quick
                 test_evaluate_invalid_operands;
+            ]);
+            ("Program", [
+                Alcotest.test_case
+                "Simple program with variable"
+                `Quick
+                test_simple_program_with_variable;
             ]);
         ]

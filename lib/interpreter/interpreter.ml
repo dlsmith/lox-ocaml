@@ -17,7 +17,7 @@ let run source =
         |> Parsing.parse_program
         (* TODO(dlsmith): Surface all errors. *)
         |> List.map Util.get_ok
-        |> Evaluation.evaluate_program
+        |> Evaluation.(evaluate_program (Env.make()))
     with Invalid_argument message -> Error message
 
 let report line where message =
