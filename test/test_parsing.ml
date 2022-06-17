@@ -59,64 +59,40 @@ let check_parse_ok tokens expected_sexp =
         )
         ~error:(fun _ -> Alcotest.fail "Expected parse ok")
 
+let create_tokens token_types =
+    token_types |> List.map (fun tt ->
+        Token.{ token_type=tt; line=0; })
+
 let test_arithmetic_precedence () =
     let open Token in
-    let tokens = [
-        { token_type=Number 1.; line=0; };
-        { token_type=Plus; line=0; };
-        { token_type=Number 2.; line=0; };
-        { token_type=Star; line=0; };
-        { token_type=Number 3.; line=0; };
-    ] in
+    let tokens = create_tokens [Number 1.; Plus; Number 2.; Star; Number 3.] in
     check_parse_ok tokens "(+ 1. (* 2. 3.))"
 
 let test_unary_binary_grouping () =
     let open Token in
-    let tokens = [
-        { token_type=LeftParen; line=0; };
-        { token_type=Number 1.; line=0; };
-        { token_type=Plus; line=0; };
-        { token_type=Number 2.; line=0; };
-        { token_type=RightParen; line=0; };
-        { token_type=Star; line=0; };
-        { token_type=Minus; line=0; };
-        { token_type=Number 3.; line=0; };
-        { token_type=Less; line=0; };
-        { token_type=Number 0.; line=0; };
-        { token_type=EqualEqual; line=0; };
-        { token_type=True; line=0; };
+    let tokens = create_tokens [
+        LeftParen; Number 1.; Plus; Number 2.; RightParen; Star;
+        Minus; Number 3.; Less; Number 0.; EqualEqual; True;
     ] in
     check_parse_ok tokens "(== (< (* (group (+ 1. 2.)) (- 3.)) 0.) true)"
 
 let test_unclosed_grouping () =
     let open Token in
-    let tokens = [
-        { token_type=Number 1.; line=0; };
-        { token_type=Plus; line=0; };
-        { token_type=LeftParen; line=0; };
-        { token_type=Number 2.; line=0; };
-        { token_type=Star; line=0; };
-        { token_type=Number 3.; line=0; };
+    let tokens = create_tokens [
+        Number 1.; Plus; LeftParen; Number 2.; Star; Number 3.;
     ] in
     check_parse_error tokens "Expect ')' after expression."
 
 let test_partial_binary_expression () =
     let open Token in
-    let tokens = [
-        { token_type=Number 1.; line=0; };
-        { token_type=Plus; line=0; };
-    ] in
+    let tokens = create_tokens [Number 1.; Plus] in
     check_parse_error tokens "Expect expression."
 
 let test_token_not_consumed_on_error () =
     let token_testable =
         Alcotest.testable Token.pp_token Token.equal_token in
     let open Token in
-    let tokens = [
-        { token_type=Number 1.; line=0; };
-        { token_type=Plus; line=0; };
-        { token_type=EOF; line=0; };
-    ] in
+    let tokens = create_tokens [Number 1.; Plus; EOF] in
     check_parse
         tokens
         ~ok:(fun _ -> Alcotest.fail "Expected parse error")
@@ -133,49 +109,31 @@ let test_token_not_consumed_on_error () =
 
 let test_assignment () =
     let open Token in
-    let tokens = [
-        { token_type=Identifier "a"; line=0; };
-        { token_type=Equal; line=0; };
-        { token_type=Number 2.; line=0; };
-        { token_type=Star; line=0; };
-        { token_type=Number 3.; line=0; };
+    let tokens = create_tokens [
+        Identifier "a"; Equal; Number 2.; Star; Number 3.;
     ] in
     check_parse_ok tokens "(assign a (* 2. 3.))"
 
 let test_group_is_invalid_assignment_target () =
     let open Token in
-    let tokens = [
-        { token_type=LeftParen; line=0; };
-        { token_type=Identifier "a"; line=0; };
-        { token_type=RightParen; line=0; };
-        { token_type=Equal; line=0; };
-        { token_type=Number 2.; line=0; };
-        { token_type=Star; line=0; };
-        { token_type=Number 3.; line=0; };
+    let tokens = create_tokens [
+        LeftParen; Identifier "a"; RightParen; Equal;
+        Number 2.; Star; Number 3.;
     ] in
     check_parse_error tokens "Invalid assignment target."
 
 let test_binary_expr_is_invalid_assignment_target () =
     let open Token in
-    let tokens = [
-        { token_type=Identifier "a"; line=0; };
-        { token_type=Plus; line=0; };
-        { token_type=Identifier "a"; line=0; };
-        { token_type=Equal; line=0; };
-        { token_type=Number 2.; line=0; };
+    let tokens = create_tokens [
+        Identifier "a"; Plus; Identifier "a"; Equal; Number 2.;
     ] in
     check_parse_error tokens "Invalid assignment target."
 
 let test_parse_print_statement () =
     let open Token in
     let expected_expr = "(+ 1. 2.)" in
-    let tokens = [
-        { token_type=Print; line=0; };
-        { token_type=Number 1.; line=0; };
-        { token_type=Plus; line=0; };
-        { token_type=Number 2.; line=0; };
-        { token_type=Semicolon; line=0; };
-        { token_type=EOF; line=0; };
+    let tokens = create_tokens [
+        Print; Number 1.; Plus; Number 2.; Semicolon; EOF;
     ] in
     match Parsing.parse_statement tokens with
     | Ok (Parsing.Print expr, [ { token_type=EOF; _ } ]) ->
@@ -190,15 +148,9 @@ let test_parse_var_declaration () =
     let open Token in
     let var_name = "some_name" in
     let expected_init_expr = "(+ 1. 2.)" in
-    let tokens = [
-        { token_type=Var; line=0; };
-        { token_type=Identifier var_name; line=0; };
-        { token_type=Equal; line=0; };
-        { token_type=Number 1.; line=0; };
-        { token_type=Plus; line=0; };
-        { token_type=Number 2.; line=0; };
-        { token_type=Semicolon; line=0; };
-        { token_type=EOF; line=0; };
+    let tokens = create_tokens [
+        Var; Identifier var_name; Equal;
+        Number 1.; Plus; Number 2.; Semicolon; EOF;
     ]
     in
     match Parsing.parse_declaration tokens with
@@ -217,12 +169,8 @@ let test_parse_var_declaration () =
 
 let test_parse_incomplete_statement () =
     let open Token in
-    let tokens = [
-        { token_type=Number 1.; line=0; };
-        { token_type=Plus; line=0; };
-        { token_type=Number 2.; line=0; };
-        (* No semicolon *)
-        { token_type=EOF; line=0; };
+    let tokens = create_tokens [
+        Number 1.; Plus; Number 2.; (* No semicolon *) EOF;
     ] in
     match Parsing.parse_statement tokens with
     | Error (message, [ { token_type=EOF; _ } ]) ->
@@ -237,17 +185,9 @@ let test_parse_multiple_statements () =
     let open Token in
     let expected_expr1 = "(+ 1. 2.)" in
     let expected_expr2 = "(- 3. 4.)" in
-    let tokens = [
-        { token_type=Number 1.; line=0; };
-        { token_type=Plus; line=0; };
-        { token_type=Number 2.; line=0; };
-        { token_type=Semicolon; line=0; };
-        { token_type=Print; line=0; };
-        { token_type=Number 3.; line=0; };
-        { token_type=Minus; line=0; };
-        { token_type=Number 4.; line=0; };
-        { token_type=Semicolon; line=0; };
-        { token_type=EOF; line=0; };
+    let tokens = create_tokens [
+        Number 1.; Plus; Number 2.; Semicolon;
+        Print; Number 3.; Minus; Number 4.; Semicolon; EOF;
     ] in
     let stmt_results = Parsing.parse_program tokens in
     (* TODO(dlsmith): Refactor to clean this up a bit, so we're not pattern
