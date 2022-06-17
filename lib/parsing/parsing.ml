@@ -30,6 +30,7 @@ type expression =
     | Unary of unary_op * expression * line_number
     | Binary of binary_op * expression * expression * line_number
     | Grouping of expression
+    | Assignment of string * expression * line_number
 
 type statement =
     | Expression of expression
@@ -73,6 +74,8 @@ let rec to_sexp expression =
             (to_sexp subexpr2)
     | Grouping subexpr ->
         Printf.sprintf "(group %s)" (to_sexp subexpr)
+    | Assignment (name, expr, _) ->
+        Printf.sprintf "(assign %s %s)" name (to_sexp expr)
 
 exception Parse_error of string
 
@@ -82,6 +85,27 @@ let get_token_type token =
     Token.(token.token_type)
 
 let (let*) = Result.bind
+
+(* Consume a single token if it passes the given predicate.
+
+   `pred` is a function that returns `'a option`, so it acts both as a
+   predicate and a mapping function.
+
+   TODO(dlsmith): This helper was introduced after much of the parsing code
+   was written. Use it in more places below, and ideally identify further
+   ways to simplify the "consume or/then ..." logic.
+*)
+let consume tokens pred =
+    match Option.bind (Util.head tokens) pred with
+    | Some v -> Some v, (Util.tail tokens)
+    | None -> (None, tokens)
+
+let match_type token_type token =
+    if get_token_type token == token_type then Some token else None
+
+let match_identifier = function
+    | Token.{ token_type=Identifier name; _ } -> Some name
+    | _ -> None
 
 let rec parse_left_assoc_binary_ops ~subparser match_op tokens =
     let* expr, tokens = subparser tokens in
@@ -185,9 +209,25 @@ and parse_equality tokens =
         end
         tokens
 
-(* expression -> equality *)
+(* assignment -> IDENTIFIER "=" assignment | equality *)
+and parse_assignment tokens =
+    let* expr, tokens = parse_equality tokens in
+    match consume tokens (match_type Token.Equal) with
+    | Some equal_token, tokens ->
+        (* Now we know we're parsing an assignment, so we should check the
+           previously parsed expression to make sure it's a valid l-value. *)
+        begin match expr with
+        | Literal (Variable name) ->
+            let* value, tokens = parse_assignment tokens in
+            let line_number = LineNumber equal_token.line in
+            Ok (Assignment (name, value, line_number), tokens)
+        | _ -> Error ("Invalid assignment target.", tokens)
+        end
+    | None, tokens -> Ok (expr, tokens)
+
+(* expression -> assignment *)
 and parse_expression tokens =
-    parse_equality tokens
+    parse_assignment tokens
 
 let parse_statement_variant tokens create_stmt =
     let* expr, tokens = parse_expression tokens in
@@ -207,24 +247,6 @@ let parse_statement tokens =
         parse_statement_variant
             tokens
             (fun expr -> Expression expr)
-
-(* Consume a single token if it passes the given predicate.
-
-   `pred` is a function that returns `'a option`, so it acts both as a
-   predicate and a mapping function.
-
- *)
-let consume tokens pred =
-    match Option.bind (Util.head tokens) pred with
-    | Some v -> Some v, (Util.tail tokens)
-    | None -> (None, tokens)
-
-let match_type token_type token =
-    if get_token_type token == token_type then Some token else None
-
-let match_identifier = function
-    | Token.{ token_type=Identifier name; _ } -> Some name
-    | _ -> None
 
 (* declaration -> ( "var" IDENTIFIER ( "=" expression )? ) | statement ";" ; *)
 let parse_declaration tokens =

@@ -36,6 +36,7 @@ type expression =
     | Unary of unary_op * expression * line_number
     | Binary of binary_op * expression * expression * line_number
     | Grouping of expression
+    | Assignment of string * expression * line_number
 
 type statement =
     | Expression of expression

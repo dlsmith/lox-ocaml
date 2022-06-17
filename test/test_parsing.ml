@@ -131,6 +131,41 @@ let test_token_not_consumed_on_error () =
                 rest_tokens
         )
 
+let test_assignment () =
+    let open Token in
+    let tokens = [
+        { token_type=Identifier "a"; line=0; };
+        { token_type=Equal; line=0; };
+        { token_type=Number 2.; line=0; };
+        { token_type=Star; line=0; };
+        { token_type=Number 3.; line=0; };
+    ] in
+    check_parse_ok tokens "(assign a (* 2. 3.))"
+
+let test_group_is_invalid_assignment_target () =
+    let open Token in
+    let tokens = [
+        { token_type=LeftParen; line=0; };
+        { token_type=Identifier "a"; line=0; };
+        { token_type=RightParen; line=0; };
+        { token_type=Equal; line=0; };
+        { token_type=Number 2.; line=0; };
+        { token_type=Star; line=0; };
+        { token_type=Number 3.; line=0; };
+    ] in
+    check_parse_error tokens "Invalid assignment target."
+
+let test_binary_expr_is_invalid_assignment_target () =
+    let open Token in
+    let tokens = [
+        { token_type=Identifier "a"; line=0; };
+        { token_type=Plus; line=0; };
+        { token_type=Identifier "a"; line=0; };
+        { token_type=Equal; line=0; };
+        { token_type=Number 2.; line=0; };
+    ] in
+    check_parse_error tokens "Invalid assignment target."
+
 let test_parse_print_statement () =
     let open Token in
     let expected_expr = "(+ 1. 2.)" in
@@ -260,6 +295,18 @@ let () =
                 "Token not consumed on error"
                 `Quick
                 test_token_not_consumed_on_error;
+                Alcotest.test_case
+                "Assignment"
+                `Quick
+                test_assignment;
+                Alcotest.test_case
+                "Group is invalid assignment target"
+                `Quick
+                test_group_is_invalid_assignment_target;
+                Alcotest.test_case
+                "Binary expr is invalid assignment target"
+                `Quick
+                test_binary_expr_is_invalid_assignment_target;
             ]);
             ("Parse statements", [
                 Alcotest.test_case
