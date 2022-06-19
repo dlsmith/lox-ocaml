@@ -26,28 +26,30 @@ type binary_op =
 type line_number = LineNumber of int
 
 type expression =
-    | Literal of literal
+    | Literal of literal * line_number
     | Unary of unary_op * expression * line_number
     | Binary of binary_op * expression * expression * line_number
-    | Grouping of expression
+    | Grouping of expression * line_number
     | Assignment of string * expression * line_number
 
 type statement =
     | Expression of expression
     | Print of expression
+    | Block of statement list
     | VariableDeclaration of string * (expression option)
+
+(* TODO(dlsmith): Use the `show` function on the type *)
+let literal_to_string = function
+    | Number num -> Float.to_string num
+    | String str -> str
+    | Variable name -> Printf.sprintf "(var %s)" name
+    | True -> "true"
+    | False -> "false"
+    | Nil -> "nil"
 
 let rec to_sexp expression =
     match expression with
-    | Literal literal ->
-        begin match literal with
-            | Number num -> Float.to_string num
-            | String str -> str
-            | Variable name -> Printf.sprintf "(var %s)" name
-            | True -> "true"
-            | False -> "false"
-            | Nil -> "nil"
-        end
+    | Literal (literal, _) -> literal_to_string literal
     | Unary (op, subexpr, _) ->
         let op_str = match op with
         | Negate -> "-"
@@ -72,7 +74,7 @@ let rec to_sexp expression =
             op_str
             (to_sexp subexpr1)
             (to_sexp subexpr2)
-    | Grouping subexpr ->
+    | Grouping (subexpr, _) ->
         Printf.sprintf "(group %s)" (to_sexp subexpr)
     | Assignment (name, expr, _) ->
         Printf.sprintf "(assign %s %s)" name (to_sexp expr)
@@ -131,21 +133,25 @@ let rec parse_left_assoc_binary_ops ~subparser match_op tokens =
 (* primary ->
     NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ; *)
 let rec parse_primary tokens =
-    let token, rest_tokens = Util.uncons tokens in
-    match Option.map get_token_type token with
-    | Some Token.False -> Ok (Literal False, rest_tokens)
-    | Some Token.True -> Ok (Literal True, rest_tokens)
-    | Some Token.Nil -> Ok (Literal Nil, rest_tokens)
-    | Some Token.Number num -> Ok (Literal (Number num), rest_tokens)
-    | Some Token.String str  -> Ok (Literal (String str), rest_tokens)
-    | Some Token.Identifier id -> Ok (Literal (Variable id), rest_tokens)
-    | Some Token.LeftParen ->
-        let* expr, rest_tokens = parse_expression rest_tokens in
-        begin match Option.map get_token_type (Util.head rest_tokens) with
-        | Some Token.RightParen -> Ok (Grouping expr, (Util.tail rest_tokens))
-        | _ -> Error ("Expect ')' after expression.", rest_tokens)
+    let default_error = ("Expect expression.", tokens) in
+    let* token = tokens |> Util.head |> Option.to_result ~none:default_error in
+    let line_number = LineNumber Token.(token.line) in
+    let tokens = Util.tail tokens in
+    match get_token_type token with
+    | Token.False -> Ok (Literal (False, line_number), tokens)
+    | Token.True -> Ok (Literal (True, line_number), tokens)
+    | Token.Nil -> Ok (Literal (Nil, line_number), tokens)
+    | Token.Number num -> Ok (Literal (Number num, line_number), tokens)
+    | Token.String str  -> Ok (Literal (String str, line_number), tokens)
+    | Token.Identifier id -> Ok (Literal (Variable id, line_number), tokens)
+    | Token.LeftParen ->
+        let* expr, tokens = parse_expression tokens in
+        begin match Option.map get_token_type (Util.head tokens) with
+        | Some Token.RightParen ->
+            Ok (Grouping (expr, line_number), (Util.tail tokens))
+        | _ -> Error ("Expect ')' after expression.", tokens)
         end
-    | _ -> Error ("Expect expression.", tokens)
+    | _ -> Error default_error
 
 (* unary -> ( "!" | "-" ) unary | primary ; *)
 and parse_unary tokens =
@@ -217,7 +223,7 @@ and parse_assignment tokens =
         (* Now we know we're parsing an assignment, so we should check the
            previously parsed expression to make sure it's a valid l-value. *)
         begin match expr with
-        | Literal (Variable name) ->
+        | Literal (Variable name, _) ->
             let* value, tokens = parse_assignment tokens in
             let line_number = LineNumber equal_token.line in
             Ok (Assignment (name, value, line_number), tokens)
@@ -236,20 +242,39 @@ let parse_statement_variant tokens create_stmt =
     | Some Token.Semicolon -> Ok (create_stmt expr, Util.tail tokens)
     | _ -> Error ("Expect ';' after value.", tokens)
 
-(* statement -> ( "print" expression | expression ) ";" ; *)
-let parse_statement tokens =
+(* statement -> ( "print" expression | block | expression ) ";" ; *)
+let rec parse_statement tokens =
     match Option.map get_token_type (Util.head tokens) with
     | Some Token.Print ->
         parse_statement_variant
             (Util.tail tokens)
             (fun expr -> Print expr)
+    | Some Token.LeftBrace ->
+        let* stmts, tokens = parse_block (Util.tail tokens) in
+        begin match consume tokens (match_type Token.RightBrace) with
+        | Some _, tokens -> Ok (Block stmts, tokens)
+        | None, tokens -> Error ("Expect '}' after block.", tokens)
+        end
     | _ ->
         parse_statement_variant
             tokens
             (fun expr -> Expression expr)
 
+(* block -> "{" declaration* "}" ;
+
+   The "{" should have been consumed before calling this function.
+ *)
+and parse_block tokens =
+    match Option.map get_token_type (Util.head tokens) with
+    | None | Some Token.RightBrace ->
+        Ok ([], tokens)
+    | _ ->
+        let* stmt, tokens = parse_declaration tokens in
+        let* stmts, tokens = parse_block tokens in
+        Ok (stmt :: stmts, tokens)
+
 (* declaration -> ( "var" IDENTIFIER ( "=" expression )? ) | statement ";" ; *)
-let parse_declaration tokens =
+and parse_declaration tokens =
     (* TODO(dlsmith): What an unreadable mess. A couple of thoughts:
 
         - The `Error` case from `consume` is only sometimes an error. We just

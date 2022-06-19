@@ -1,6 +1,44 @@
 let literal_testable =
     Alcotest.testable Parsing.pp_literal Parsing.equal_literal
 
+let test_contains_with_empty_env () =
+    let env = Evaluation.Env.make ~parent:None in
+    Alcotest.(check bool)
+        "Does not contain"
+        false
+        (Evaluation.Env.contains env "a")
+
+let test_set_fails_for_undefined () =
+    let env = Evaluation.Env.make ~parent:None in
+    match Evaluation.Env.set env "a" Parsing.True with
+    | Ok _ -> Alcotest.fail "Expected `set` to fail"
+    | Error message ->
+        Alcotest.(check string)
+            "Same error"
+            "Undefined variable 'a'."
+            message
+
+let test_set_in_parent_scope () =
+    (* TODO(dlsmith): Pull out `Env` just within this function? *)
+    let parent = Evaluation.Env.make ~parent:None in
+    let parent = Evaluation.Env.define parent "a" (Parsing.String "parent") in
+    let child = Evaluation.Env.make ~parent:(Some (ref parent)) in
+    let child =
+        Evaluation.Env.set child "a" (Parsing.String "child") |> Result.get_ok
+    in
+    Alcotest.(check bool)
+        "Child does not contain"
+        false
+        (Evaluation.Env.contains child "a");
+    Alcotest.(check bool)
+        "Parent does contain"
+        true
+        (Evaluation.Env.contains parent "a");
+    Alcotest.(check literal_testable)
+        "Parent contains value set via child"
+        (Parsing.String "child")
+        (Evaluation.Env.get parent "a" |> Result.get_ok)
+
 let evaluate_expr source =
     let (let*) = Result.bind in
     let* tokens = Interpreter.scan_or_error source in
@@ -11,57 +49,92 @@ let evaluate_expr source =
     in
     match rest_tokens with
     | [ { token_type=Token.EOF; _} ] ->
-        Evaluation.(evaluate_expression (Env.make()) expr)
+        Evaluation.(evaluate_expression (Env.make ~parent:None) expr)
     | _ -> Error "Expected a single expression"
 
 let test_evaluate_valid_expression () =
     let source = "1. + 2. > 0." in
     Alcotest.(check literal_testable)
         "Same value"
+        Parsing.True
         (source
         |> evaluate_expr
         |> Util.get_ok
         |> (fun (v, _) -> v))
-        Parsing.True
 
 let test_evaluate_invalid_negation () =
     let source = "-\"hello\"" in
     Alcotest.(check string)
         "Same value"
-        (source |> evaluate_expr |> Result.get_error)
         "[line 0] Error: Operand must be a number."
+        (source |> evaluate_expr |> Result.get_error)
 
 let test_evaluate_invalid_sum () =
     let source = "1. + \"hello\"" in
     Alcotest.(check string)
         "Same value"
-        (source |> evaluate_expr |> Result.get_error)
         "[line 0] Error: Operands must be two numbers or two strings."
+        (source |> evaluate_expr |> Result.get_error)
 
 let test_evaluate_invalid_operands () =
     let source = "\"one\" / \"two\"" in
     Alcotest.(check string)
         "Same value"
-        (source |> evaluate_expr |> Result.get_error)
         "[line 0] Error: Operands must be numbers."
+        (source |> evaluate_expr |> Result.get_error)
 
 let test_simple_program_with_variable_declaration () =
     let source = "var a = \"one\" + \"two\"; a + \"three\";" in
     Alcotest.(check literal_testable)
         "Same value"
-        (source |> Interpreter.run |> Util.get_ok |> Option.get)
         (Parsing.String "onetwothree")
+        (source |> Interpreter.run |> Util.get_ok |> Option.get)
 
 let test_simple_program_with_variable_assignment () =
     let source = "var a; a = 1.; a > 0.;" in
     Alcotest.(check literal_testable)
         "Same value"
-        (source |> Interpreter.run |> Util.get_ok |> Option.get)
         (Parsing.True)
+        (source |> Interpreter.run |> Util.get_ok |> Option.get)
+
+let test_outer_scope_is_preserved_during_shadowing () =
+    let source = "var a = \"outer\"; { var a = \"inner\"; } a;" in
+    Alcotest.(check literal_testable)
+        "Same value"
+        (Parsing.String "outer")
+        (source |> Interpreter.run |> Util.get_ok |> Option.get)
+
+let test_outer_scope_is_modified_by_assignment () =
+    let source = "var a = \"outer\"; { var b = 1 + 2; a = \"inner\"; } a;" in
+    Alcotest.(check literal_testable)
+        "Same value"
+        (Parsing.String "inner")
+        (source |> Interpreter.run |> Util.get_ok |> Option.get)
+
+let test_inner_scope_decl_not_available_in_outer () =
+    let source = "{ var a = \"inner\"; } a;" in
+    Alcotest.(check string)
+        "Same value"
+        "[line 0] Error: Undefined variable 'a'."
+        (source |> Interpreter.run |> Result.get_error)
 
 let () =
     Alcotest.run "Evaluation test suite"
         [
+            ("Env", [
+                Alcotest.test_case
+                "Contains with empty Env"
+                `Quick
+                test_contains_with_empty_env;
+                Alcotest.test_case
+                "Set fails for undefined"
+                `Quick
+                test_set_fails_for_undefined;
+                Alcotest.test_case
+                "Set in parent scope"
+                `Quick
+                test_set_in_parent_scope;
+            ]);
             ("Expressions", [
                 Alcotest.test_case
                 "Valid expression"
@@ -89,5 +162,22 @@ let () =
                 "Simple program with variable assignment"
                 `Quick
                 test_simple_program_with_variable_assignment;
+                Alcotest.test_case
+                "Outer scope is preserved during shadowing"
+                `Quick
+                test_outer_scope_is_preserved_during_shadowing;
+                Alcotest.test_case
+                "Outer scope is modified by assignment"
+                `Quick
+                test_outer_scope_is_modified_by_assignment;
+                Alcotest.test_case
+                "Inner scope declaration is not available in outer"
+                `Quick
+                test_inner_scope_decl_not_available_in_outer;
+
+                (* TODO(dlsmith): Something with multiple child scopes, e.g.,
+                   where two child scopes modify something from parent scope. *)
+
+                (* TODO(dlsmith): Final value not returned if within a block *)
             ]);
         ]

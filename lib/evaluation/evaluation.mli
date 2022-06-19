@@ -1,8 +1,20 @@
 module Env : sig
     type t
-    val make : unit -> t
+
+    val make : parent:(t ref option) -> t
+
     val contains : t -> string -> bool
-    val set : t -> string -> Parsing.literal -> t
+
+    val get_parent : t -> t ref option
+
+    (** Set the value for a new or existing variable in the current scope. *)
+    val define : t -> string -> Parsing.literal -> t
+
+    (** Set the value for an existing variable in this scope or the applicable
+        ancestral scope, returning `Error` if it is had not been previously
+        defined. *)
+    val set : t -> string -> Parsing.literal -> (t, string) result
+
     val get : t -> string -> (Parsing.literal, string) result
 end
 

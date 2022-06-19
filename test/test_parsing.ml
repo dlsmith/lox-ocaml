@@ -6,20 +6,21 @@ let test_to_sexp () =
                 EqualEqual,
                 Binary (
                     Greater,
-                    Literal (Number 1.2),
+                    Literal (Number 1.2, LineNumber 0),
                     Unary (
                         Negate,
                         Grouping (
                             Binary (
                                 Plus,
-                                Literal (Number 5.0),
-                                Literal (Number 2.0),
+                                Literal (Number 5.0, LineNumber 0),
+                                Literal (Number 2.0, LineNumber 0),
                                 LineNumber 0
-                            )),
+                            ),
+                            LineNumber 0),
                         LineNumber 0),
                         LineNumber 0
                     ),
-                Literal True,
+                Literal (True, LineNumber 0),
                 LineNumber 0)
         in
     Alcotest.(check string)
@@ -263,6 +264,9 @@ let () =
                 test_parse_var_declaration;
                 (* TODO(dlsmith): Unintialized var and error cases. *)
                 (* TODO(dlsmith): Synchronization. *)
+                (* TODO(dlsmith): Block parsing. This can be part of the
+                   refactor to better support statements in general, rather
+                   than pattern matching down to the inner expression. *)
             ]);
             ("Parse program", [
                 Alcotest.test_case
