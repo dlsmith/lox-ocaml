@@ -25,6 +25,9 @@ type binary_op =
 
 type line_number = LineNumber of int
 
+(* TODO(dlsmith): Ok, we're using the line number for every `expression`
+   variant. Can we factor this out somehow, e.g., into the `Expression` variant
+   of `statement`? *)
 type expression =
     | Literal of literal * line_number
     | Unary of unary_op * expression * line_number
@@ -237,10 +240,9 @@ and parse_expression tokens =
 
 let parse_statement_variant tokens create_stmt =
     let* expr, tokens = parse_expression tokens in
-    let token = Util.head tokens in
-    match Option.map get_token_type token with
-    | Some Token.Semicolon -> Ok (create_stmt expr, Util.tail tokens)
-    | _ -> Error ("Expect ';' after value.", tokens)
+    match consume tokens (match_type Token.Semicolon) with
+    | Some _, tokens -> Ok (create_stmt expr, tokens)
+    | None, tokens -> Error ("Expect ';' after value.", tokens)
 
 (* statement -> ( "print" expression | block | expression ) ";" ; *)
 let rec parse_statement tokens =
@@ -249,7 +251,18 @@ let rec parse_statement tokens =
         parse_statement_variant
             (Util.tail tokens)
             (fun expr -> Print expr)
+    (* block -> "{" declaration* "}" ; *)
     | Some Token.LeftBrace ->
+        let rec parse_block tokens =
+            match Option.map get_token_type (Util.head tokens) with
+            | None | Some Token.RightBrace ->
+                Ok ([], tokens)
+            | _ ->
+                let* stmt, tokens = parse_declaration tokens in
+                let* stmts, tokens = parse_block tokens in
+                Ok (stmt :: stmts, tokens)
+        in
+
         let* stmts, tokens = parse_block (Util.tail tokens) in
         begin match consume tokens (match_type Token.RightBrace) with
         | Some _, tokens -> Ok (Block stmts, tokens)
@@ -260,38 +273,8 @@ let rec parse_statement tokens =
             tokens
             (fun expr -> Expression expr)
 
-(* block -> "{" declaration* "}" ;
-
-   The "{" should have been consumed before calling this function.
- *)
-and parse_block tokens =
-    match Option.map get_token_type (Util.head tokens) with
-    | None | Some Token.RightBrace ->
-        Ok ([], tokens)
-    | _ ->
-        let* stmt, tokens = parse_declaration tokens in
-        let* stmts, tokens = parse_block tokens in
-        Ok (stmt :: stmts, tokens)
-
 (* declaration -> ( "var" IDENTIFIER ( "=" expression )? ) | statement ";" ; *)
 and parse_declaration tokens =
-    (* TODO(dlsmith): What an unreadable mess. A couple of thoughts:
-
-        - The `Error` case from `consume` is only sometimes an error. We just
-          want to carry the remaining tokens, and we can't do that with an
-          `Option`, which is a better fit for what's going on. We could return
-          a `'a option * Token.token list`, but then we can't pipeline.
-        - The type of `consume`'s result also doesn't play well with the result
-          we ultimately want to return from this function, so we're limited
-          in the extent to which we can use `let *`, which definitely harms
-          readability.
-
-        Together, these point to using a custom type in place of Result/Option,
-        and using `let*` to allow us to bind in a way that's compatible with
-        this type, but will also produce the correct error format in the case
-        of early exit.
-
-    *)
     match consume tokens (match_type Token.Var) with
     | Some _, tokens ->
         begin match consume tokens match_identifier with
