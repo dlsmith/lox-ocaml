@@ -118,6 +118,20 @@ let test_inner_scope_decl_not_available_in_outer () =
         "[line 0] Error: Undefined variable 'a'."
         (source |> Interpreter.run |> Result.get_error)
 
+let test_final_value_not_returned_if_within_a_block () =
+    let source = "{ 1 + 2; }" in
+    Alcotest.(check (result (option literal_testable) string))
+        "Unit result"
+        (Ok None)
+        (source |> Interpreter.run)
+
+let test_multiple_child_scopes () =
+    let source = "var a = 1.; { a = a + 1.; } { a = 2 * a; } a >= 4.;" in
+    Alcotest.(check (result (option literal_testable) string))
+        "Expected value"
+        (Ok (Some Ast.True))
+        (source |> Interpreter.run)
+
 let () =
     Alcotest.run "Evaluation test suite"
         [
@@ -174,10 +188,13 @@ let () =
                     "Inner scope declaration is not available in outer"
                     `Quick
                     test_inner_scope_decl_not_available_in_outer;
-
-                (* TODO(dlsmith): Something with multiple child scopes, e.g.,
-                   where two child scopes modify something from parent scope. *)
-
-                (* TODO(dlsmith): Final value not returned if within a block *)
+                Alcotest.test_case
+                    "Final value not returned if within a block"
+                    `Quick
+                    test_final_value_not_returned_if_within_a_block;
+                Alcotest.test_case
+                    "Multiple child scopes"
+                    `Quick
+                    test_multiple_child_scopes;
             ]);
         ]
