@@ -187,6 +187,33 @@ let test_parse_multiple_statements () =
         expected
         (Ast.stmts_to_sexp stmts)
 
+let test_recovers_from_error () =
+    let open Token in
+    let tokens = create_tokens [
+        (* Error from missing paren before conditional. Should resume after
+           termination of the then branch print statement.
+
+            if true
+                a = "skipped";
+
+            print "after";
+        *)
+        If; True; Identifier "a"; Equal; String "skipped";
+        Print; String "after"; Semicolon;
+        EOF;
+    ] in
+    match Parsing.parse_program tokens with
+    | [Error "Expect '(' after 'if'."; Ok stmt] ->
+        Alcotest.(check string)
+            "Same string"
+            "(print after)"
+            (Ast.stmt_to_sexp stmt)
+    | results ->
+        Alcotest.fail
+        (Printf.sprintf
+            "Unexpected parse with %d results"
+            (List.length results))
+
 let () =
     Alcotest.run "Parsing test suite"
         [
@@ -247,7 +274,9 @@ let () =
                     "Multiple statements"
                     `Quick
                     test_parse_multiple_statements;
-
-                (* TODO(dlsmith): Synchronization. *)
+                Alcotest.test_case
+                    "Recovers from error"
+                    `Quick
+                    test_recovers_from_error;
             ]);
         ]
