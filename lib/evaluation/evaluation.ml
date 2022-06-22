@@ -121,6 +121,15 @@ let rec evaluate_statement env stmt =
     | Expression expr ->
         let* value, env = evaluate_expression env expr in
         Ok (Some value, env)
+    | If (cond_expr, then_branch, else_branch_option) ->
+        let* cond, env = evaluate_expression env cond_expr in
+        if is_truthy cond then
+            evaluate_statement env then_branch
+        else
+            begin match else_branch_option with
+            | Some stmt -> evaluate_statement env stmt
+            | None -> Ok (None, env)
+            end
     | Print expr ->
         let* value, env = evaluate_expression env expr in
         value |> literal_to_string |> print_endline;

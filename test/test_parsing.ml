@@ -149,6 +149,24 @@ let test_block_statement () =
             (Ast.stmt_to_sexp stmt)
     | _ -> Alcotest.fail "Expected parse ok"
 
+let test_else_bound_to_nearest_if () =
+    let open Token in
+    let expected = "(if true (if false (expr 1.) (expr 2.)))" in
+    let tokens = create_tokens [
+        If; LeftParen; True; RightParen;
+        If; LeftParen; False; RightParen;
+        Number 1.; Semicolon;
+        Else; Number 2.; Semicolon;
+        EOF;
+    ] in
+    match Parsing.parse_statement tokens with
+    | Ok (stmt, [ { token_type=EOF; _ } ]) ->
+        Alcotest.(check string)
+            "Same string"
+            expected
+            (Ast.stmt_to_sexp stmt)
+    | _ -> Alcotest.fail "Expected parse ok"
+
 let test_parse_multiple_statements () =
     let open Token in
     let var_name = "a" in
@@ -219,6 +237,10 @@ let () =
                     "Block statement"
                     `Quick
                     test_block_statement;
+                Alcotest.test_case
+                    "Else bound to nearest if"
+                    `Quick
+                    test_else_bound_to_nearest_if;
             ]);
             ("Parse program", [
                 Alcotest.test_case

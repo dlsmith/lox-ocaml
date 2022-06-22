@@ -170,6 +170,29 @@ let rec parse_statement tokens =
         parse_statement_variant
             (Util.tail tokens)
             (fun expr -> Print expr)
+    | Some Token.If ->
+        let tokens = Util.tail tokens in
+        let* tokens =
+            consume_or_error
+                tokens
+                Token.LeftParen
+                "Expect '(' after 'if'."
+        in
+        let* condition, tokens = parse_expression tokens in
+        let* tokens =
+            consume_or_error
+                tokens
+                Token.RightParen
+                "Expect ')' after if condition."
+        in
+        let* then_branch, tokens = parse_statement tokens in
+        begin match consume tokens (match_type Token.Else) with
+        | Some _, tokens ->
+            let* else_branch, tokens = parse_statement tokens in
+            Ok (If (condition, then_branch, Some else_branch), tokens)
+        | None, tokens ->
+            Ok (If (condition, then_branch, None), tokens)
+        end
     (* block -> "{" declaration* "}" ; *)
     | Some Token.LeftBrace ->
         let rec parse_block tokens =

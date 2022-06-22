@@ -131,6 +131,13 @@ let test_multiple_child_scopes () =
         (Ok (Some Ast.True))
         (source |> Interpreter.run)
 
+let test_else_not_executed_for_true_condition () =
+    let source = "var a = 3.; if (true) a = a * 5.; else a = a + 1.; a;" in
+    Alcotest.(check (result (option literal_testable) string))
+        "Expected value"
+        (Ok (Some (Ast.Number 15.)))
+        (source |> Interpreter.run)
+
 let () =
     Alcotest.run "Evaluation test suite"
         [
@@ -195,5 +202,9 @@ let () =
                     "Multiple child scopes"
                     `Quick
                     test_multiple_child_scopes;
+                Alcotest.test_case
+                    "Else not executed for true condition"
+                    `Quick
+                    test_else_not_executed_for_true_condition;
             ]);
         ]

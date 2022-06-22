@@ -39,6 +39,7 @@ type expression =
 
 type statement =
     | Expression of expression
+    | If of expression * statement * (statement option)
     | Print of expression
     | Block of statement list
     | VariableDeclaration of string * (expression option)
@@ -87,6 +88,17 @@ let rec expr_to_sexp = function
 let rec stmt_to_sexp = function
     | Expression expr ->
         Printf.sprintf "(expr %s)" (expr_to_sexp expr)
+    | If (condition, then_branch, None) ->
+        Printf.sprintf
+            "(if %s %s)"
+            (expr_to_sexp condition)
+            (stmt_to_sexp then_branch)
+    | If (condition, then_branch, Some else_branch) ->
+        Printf.sprintf
+            "(if %s %s %s)"
+            (expr_to_sexp condition)
+            (stmt_to_sexp then_branch)
+            (stmt_to_sexp else_branch)
     | Print expr ->
         Printf.sprintf "(print %s)" (expr_to_sexp expr)
     | VariableDeclaration (name, Some expr) ->
