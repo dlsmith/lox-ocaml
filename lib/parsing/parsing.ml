@@ -173,23 +173,18 @@ and parse_assignment tokens =
 and parse_expression tokens =
     parse_assignment tokens
 
-let parse_statement_variant tokens create_stmt =
-    let* expr, tokens = parse_expression tokens in
-    let* tokens =
-        consume_or_error
-            tokens
-            Token.Semicolon
-            "Expect ';' after value."
-    in
-    Ok (create_stmt expr, tokens)
-
 (* statement -> ( "print" expression | block | expression ) ";" ; *)
 let rec parse_statement tokens =
     match Option.map get_token_type (Util.head tokens) with
     | Some Token.Print ->
-        parse_statement_variant
-            (Util.tail tokens)
-            (fun expr -> Print expr)
+        let* expr, tokens = parse_expression (Util.tail tokens) in
+        let* tokens =
+            consume_or_error
+                tokens
+                Token.Semicolon
+                "Expect ';' after value."
+        in
+        Ok (Print expr, tokens)
     | Some Token.If ->
         let tokens = Util.tail tokens in
         let* tokens =
@@ -234,9 +229,14 @@ let rec parse_statement tokens =
         in
         Ok (Block stmts, tokens)
     | _ ->
-        parse_statement_variant
-            tokens
-            (fun expr -> Expression expr)
+        let* expr, tokens = parse_expression tokens in
+        let* tokens =
+            consume_or_error
+                tokens
+                Token.Semicolon
+                "Expect ';' after value."
+        in
+        Ok (Expression expr, tokens)
 
 (* declaration -> ( "var" IDENTIFIER ( "=" expression )? ) | statement ";" ; *)
 and parse_declaration tokens =
