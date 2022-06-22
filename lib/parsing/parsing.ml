@@ -9,15 +9,7 @@ let get_token_type token =
 
 let (let*) = Result.bind
 
-(* Consume a single token if it passes the given predicate.
-
-   `pred` is a function that returns `'a option`, so it acts both as a
-   predicate and a mapping function.
-
-   TODO(dlsmith): This helper was introduced after much of the parsing code
-   was written. Use it in more places below, and ideally identify further
-   ways to simplify the "consume or/then ..." logic.
-*)
+(* Consume a single token if it passes the given predicate. *)
 let consume tokens pred =
     match Option.bind (Util.head tokens) pred with
     | Some v -> Some v, (Util.tail tokens)
