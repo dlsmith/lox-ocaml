@@ -1,5 +1,3 @@
 (library
  (name parsing)
- (libraries token util)
- (preprocess
-   (pps ppx_deriving.show ppx_deriving.eq)))
+ (libraries token util ast))

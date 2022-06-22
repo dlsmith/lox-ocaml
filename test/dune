@@ -4,11 +4,16 @@
   (libraries alcotest scanning))
 
 (test
+  (name test_ast)
+  (modules test_ast)
+  (libraries alcotest ast))
+
+(test
   (name test_parsing)
   (modules test_parsing)
-  (libraries alcotest parsing))
+  (libraries alcotest ast parsing))
 
 (test
   (name test_evaluation)
   (modules test_evaluation)
-  (libraries alcotest evaluation interpreter))
+  (libraries alcotest ast evaluation interpreter))

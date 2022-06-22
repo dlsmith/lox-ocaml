@@ -9,7 +9,7 @@ let interpret_file path =
     path
     |> read_file
     |> Interpreter.run
-    |> Result.map (Option.map Parsing.literal_to_string)
+    |> Result.map (Option.map Ast.literal_to_string)
 
 let rec interpret_interactive () =
     print_string "> ";
@@ -19,7 +19,7 @@ let rec interpret_interactive () =
         match result with
         | Ok output ->
             let print_literal = fun value ->
-                print_endline (Parsing.literal_to_string value) in
+                print_endline (Ast.literal_to_string value) in
             let _ = Option.map print_literal output in
             interpret_interactive()
         | Error message ->

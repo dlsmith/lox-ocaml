@@ -1,4 +1,4 @@
-open Parsing
+open Ast
 
 let (let*) = Result.bind
 
@@ -145,7 +145,7 @@ let rec evaluate_statement env stmt =
     | VariableDeclaration (name, init_expr) ->
         let* value, env = match init_expr with
         | Some expr -> evaluate_expression env expr
-        | None -> Ok (Parsing.Nil, env)
+        | None -> Ok (Nil, env)
         in
         Ok (None, Env.define env name value)
 

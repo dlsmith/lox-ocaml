@@ -1,5 +1,5 @@
 let literal_testable =
-    Alcotest.testable Parsing.pp_literal Parsing.equal_literal
+    Alcotest.testable Ast.pp_literal Ast.equal_literal
 
 let test_contains_with_empty_env () =
     let env = Evaluation.Env.make ~parent:None in
@@ -10,7 +10,7 @@ let test_contains_with_empty_env () =
 
 let test_set_fails_for_undefined () =
     let env = Evaluation.Env.make ~parent:None in
-    match Evaluation.Env.set env "a" Parsing.True with
+    match Evaluation.Env.set env "a" Ast.True with
     | Ok _ -> Alcotest.fail "Expected `set` to fail"
     | Error message ->
         Alcotest.(check string)
@@ -21,10 +21,10 @@ let test_set_fails_for_undefined () =
 let test_set_in_parent_scope () =
     (* TODO(dlsmith): Pull out `Env` just within this function? *)
     let parent = Evaluation.Env.make ~parent:None in
-    let parent = Evaluation.Env.define parent "a" (Parsing.String "parent") in
+    let parent = Evaluation.Env.define parent "a" (Ast.String "parent") in
     let child = Evaluation.Env.make ~parent:(Some (ref parent)) in
     let child =
-        Evaluation.Env.set child "a" (Parsing.String "child") |> Result.get_ok
+        Evaluation.Env.set child "a" (Ast.String "child") |> Result.get_ok
     in
     Alcotest.(check bool)
         "Child does not contain"
@@ -36,7 +36,7 @@ let test_set_in_parent_scope () =
         (Evaluation.Env.contains parent "a");
     Alcotest.(check literal_testable)
         "Parent contains value set via child"
-        (Parsing.String "child")
+        (Ast.String "child")
         (Evaluation.Env.get parent "a" |> Result.get_ok)
 
 let evaluate_expr source =
@@ -56,7 +56,7 @@ let test_evaluate_valid_expression () =
     let source = "1. + 2. > 0." in
     Alcotest.(check literal_testable)
         "Same value"
-        Parsing.True
+        Ast.True
         (source
         |> evaluate_expr
         |> Util.get_ok
@@ -87,28 +87,28 @@ let test_simple_program_with_variable_declaration () =
     let source = "var a = \"one\" + \"two\"; a + \"three\";" in
     Alcotest.(check literal_testable)
         "Same value"
-        (Parsing.String "onetwothree")
+        (Ast.String "onetwothree")
         (source |> Interpreter.run |> Util.get_ok |> Option.get)
 
 let test_simple_program_with_variable_assignment () =
     let source = "var a; a = 1.; a > 0.;" in
     Alcotest.(check literal_testable)
         "Same value"
-        (Parsing.True)
+        (Ast.True)
         (source |> Interpreter.run |> Util.get_ok |> Option.get)
 
 let test_outer_scope_is_preserved_during_shadowing () =
     let source = "var a = \"outer\"; { var a = \"inner\"; } a;" in
     Alcotest.(check literal_testable)
         "Same value"
-        (Parsing.String "outer")
+        (Ast.String "outer")
         (source |> Interpreter.run |> Util.get_ok |> Option.get)
 
 let test_outer_scope_is_modified_by_assignment () =
     let source = "var a = \"outer\"; { var b = 1 + 2; a = \"inner\"; } a;" in
     Alcotest.(check literal_testable)
         "Same value"
-        (Parsing.String "inner")
+        (Ast.String "inner")
         (source |> Interpreter.run |> Util.get_ok |> Option.get)
 
 let test_inner_scope_decl_not_available_in_outer () =

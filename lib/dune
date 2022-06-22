@@ -1,7 +1,7 @@
 (library
  (name entrypoint)
  (modules entrypoint)
- (libraries interpreter))
+ (libraries interpreter ast))
 
 (library
  (name token)
@@ -12,3 +12,9 @@
 (library
   (name util)
   (modules util))
+
+(library
+  (name ast)
+  (modules ast)
+  (preprocess
+    (pps ppx_deriving.show ppx_deriving.eq)))

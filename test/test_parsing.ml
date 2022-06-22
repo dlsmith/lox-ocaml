@@ -1,33 +1,3 @@
-let test_to_sexp () =
-    let expected = "(== (> 1.2 (- (group (+ 5. 2.)))) true)" in
-    let ast =
-        let open Parsing in
-            Binary (
-                EqualEqual,
-                Binary (
-                    Greater,
-                    Literal (Number 1.2, LineNumber 0),
-                    Unary (
-                        Negate,
-                        Grouping (
-                            Binary (
-                                Plus,
-                                Literal (Number 5.0, LineNumber 0),
-                                Literal (Number 2.0, LineNumber 0),
-                                LineNumber 0
-                            ),
-                            LineNumber 0),
-                        LineNumber 0),
-                        LineNumber 0
-                    ),
-                Literal (True, LineNumber 0),
-                LineNumber 0)
-        in
-    Alcotest.(check string)
-        "Same string"
-        expected
-        (Parsing.to_sexp ast)
-
 let check_parse tokens ~ok ~error =
     let partial_parse = Parsing.parse_expression tokens in
     match partial_parse with
@@ -56,7 +26,7 @@ let check_parse_ok tokens expected_sexp =
             Alcotest.(check string)
                 "Same s-exp"
                 expected_sexp
-                (Parsing.to_sexp expr)
+                (Ast.to_sexp expr)
         )
         ~error:(fun _ -> Alcotest.fail "Expected parse ok")
 
@@ -137,11 +107,11 @@ let test_parse_print_statement () =
         Print; Number 1.; Plus; Number 2.; Semicolon; EOF;
     ] in
     match Parsing.parse_statement tokens with
-    | Ok (Parsing.Print expr, [ { token_type=EOF; _ } ]) ->
+    | Ok (Ast.Print expr, [ { token_type=EOF; _ } ]) ->
         Alcotest.(check string)
             "Same string"
             expected_expr
-            (Parsing.to_sexp expr)
+            (Ast.to_sexp expr)
     | Error (message, _) -> Alcotest.fail ("Parsing error: " ^ message)
     | _ -> Alcotest.fail "Unexpected parse"
 
@@ -155,7 +125,7 @@ let test_parse_var_declaration () =
     ]
     in
     match Parsing.parse_declaration tokens with
-    | Ok (Parsing.VariableDeclaration (name, Some init_expr),
+    | Ok (Ast.VariableDeclaration (name, Some init_expr),
           [ { token_type=EOF; _ } ]) ->
         Alcotest.(check string)
             "Same string"
@@ -164,7 +134,7 @@ let test_parse_var_declaration () =
         Alcotest.(check string)
             "Same string"
             expected_init_expr
-            (Parsing.to_sexp init_expr)
+            (Ast.to_sexp init_expr)
     | Error (message, _) -> Alcotest.fail ("Parsing error: " ^ message)
     | _ -> Alcotest.fail "Unexpected parse"
 
@@ -199,22 +169,16 @@ let test_parse_multiple_statements () =
         Alcotest.(check string)
             "Same string"
             expected_expr1
-            (Parsing.to_sexp expr1);
+            (Ast.to_sexp expr1);
         Alcotest.(check string)
             "Same string"
             expected_expr2
-            (Parsing.to_sexp expr2)
+            (Ast.to_sexp expr2)
     | _ -> Alcotest.fail "Unexpected parse"
 
 let () =
     Alcotest.run "Parsing test suite"
         [
-            ("Print AST", [
-                Alcotest.test_case
-                "Print AST"
-                `Quick
-                test_to_sexp;
-            ]);
             ("Parse expressions", [
                 Alcotest.test_case
                 "Arithmetic precedence"
