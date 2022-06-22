@@ -33,8 +33,8 @@ let () =
         [
             ("Serialize to s-exp", [
                 Alcotest.test_case
-                "Nested expression"
-                `Quick
-                test_to_sexp;
+                    "Nested expression"
+                    `Quick
+                    test_to_sexp;
             ]);
         ]

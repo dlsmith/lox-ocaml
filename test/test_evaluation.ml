@@ -123,57 +123,57 @@ let () =
         [
             ("Env", [
                 Alcotest.test_case
-                "Contains with empty Env"
-                `Quick
-                test_contains_with_empty_env;
+                    "Contains with empty Env"
+                    `Quick
+                    test_contains_with_empty_env;
                 Alcotest.test_case
-                "Set fails for undefined"
-                `Quick
-                test_set_fails_for_undefined;
+                    "Set fails for undefined"
+                    `Quick
+                    test_set_fails_for_undefined;
                 Alcotest.test_case
-                "Set in parent scope"
-                `Quick
-                test_set_in_parent_scope;
+                    "Set in parent scope"
+                    `Quick
+                    test_set_in_parent_scope;
             ]);
             ("Expressions", [
                 Alcotest.test_case
-                "Valid expression"
-                `Quick
-                test_evaluate_valid_expression;
+                    "Valid expression"
+                    `Quick
+                    test_evaluate_valid_expression;
                 Alcotest.test_case
-                "Invalid negation"
-                `Quick
-                test_evaluate_invalid_negation;
+                    "Invalid negation"
+                    `Quick
+                    test_evaluate_invalid_negation;
                 Alcotest.test_case
-                "Invalid operands for sum"
-                `Quick
-                test_evaluate_invalid_sum;
+                    "Invalid operands for sum"
+                    `Quick
+                    test_evaluate_invalid_sum;
                 Alcotest.test_case
-                "Non-numeric operands"
-                `Quick
-                test_evaluate_invalid_operands;
+                    "Non-numeric operands"
+                    `Quick
+                    test_evaluate_invalid_operands;
             ]);
             ("Program", [
                 Alcotest.test_case
-                "Simple program with variable declaration"
-                `Quick
-                test_simple_program_with_variable_declaration;
+                    "Simple program with variable declaration"
+                    `Quick
+                    test_simple_program_with_variable_declaration;
                 Alcotest.test_case
-                "Simple program with variable assignment"
-                `Quick
-                test_simple_program_with_variable_assignment;
+                    "Simple program with variable assignment"
+                    `Quick
+                    test_simple_program_with_variable_assignment;
                 Alcotest.test_case
-                "Outer scope is preserved during shadowing"
-                `Quick
-                test_outer_scope_is_preserved_during_shadowing;
+                    "Outer scope is preserved during shadowing"
+                    `Quick
+                    test_outer_scope_is_preserved_during_shadowing;
                 Alcotest.test_case
-                "Outer scope is modified by assignment"
-                `Quick
-                test_outer_scope_is_modified_by_assignment;
+                    "Outer scope is modified by assignment"
+                    `Quick
+                    test_outer_scope_is_modified_by_assignment;
                 Alcotest.test_case
-                "Inner scope declaration is not available in outer"
-                `Quick
-                test_inner_scope_decl_not_available_in_outer;
+                    "Inner scope declaration is not available in outer"
+                    `Quick
+                    test_inner_scope_decl_not_available_in_outer;
 
                 (* TODO(dlsmith): Something with multiple child scopes, e.g.,
                    where two child scopes modify something from parent scope. *)

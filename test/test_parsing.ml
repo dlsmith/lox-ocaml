@@ -174,57 +174,58 @@ let () =
         [
             ("Parse expressions", [
                 Alcotest.test_case
-                "Arithmetic precedence"
-                `Quick
-                test_arithmetic_precedence;
+                    "Arithmetic precedence"
+                    `Quick
+                    test_arithmetic_precedence;
                 Alcotest.test_case
-                "Expression with unary, binary, and grouping"
-                `Quick
-                test_unary_binary_grouping;
+                    "Expression with unary, binary, and grouping"
+                    `Quick
+                    test_unary_binary_grouping;
                 Alcotest.test_case
-                "Unclosed grouping"
-                `Quick
-                test_unclosed_grouping;
+                    "Unclosed grouping"
+                    `Quick
+                    test_unclosed_grouping;
                 Alcotest.test_case
-                "Partial binary expression"
-                `Quick
-                test_partial_binary_expression;
+                    "Partial binary expression"
+                    `Quick
+                    test_partial_binary_expression;
                 Alcotest.test_case
-                "Token not consumed on error"
-                `Quick
-                test_token_not_consumed_on_error;
+                    "Token not consumed on error"
+                    `Quick
+                    test_token_not_consumed_on_error;
                 Alcotest.test_case
-                "Assignment"
-                `Quick
-                test_assignment;
+                    "Assignment"
+                    `Quick
+                    test_assignment;
                 Alcotest.test_case
-                "Group is invalid assignment target"
-                `Quick
-                test_group_is_invalid_assignment_target;
+                    "Group is invalid assignment target"
+                    `Quick
+                    test_group_is_invalid_assignment_target;
                 Alcotest.test_case
-                "Binary expr is invalid assignment target"
-                `Quick
-                test_binary_expr_is_invalid_assignment_target;
+                    "Binary expr is invalid assignment target"
+                    `Quick
+                    test_binary_expr_is_invalid_assignment_target;
             ]);
             ("Parse statements", [
                 Alcotest.test_case
-                "Incomplete statement"
-                `Quick
-                test_parse_incomplete_statement;
+                    "Incomplete statement"
+                    `Quick
+                    test_parse_incomplete_statement;
                 Alcotest.test_case
-                "Incomplete block"
-                `Quick
-                test_parse_incomplete_block;
+                    "Incomplete block"
+                    `Quick
+                    test_parse_incomplete_block;
                 Alcotest.test_case
-                "Block statement"
-                `Quick
-                test_block_statement;
+                    "Block statement"
+                    `Quick
+                    test_block_statement;
             ]);
             ("Parse program", [
                 Alcotest.test_case
-                "Multiple statements"
-                `Quick
-                test_parse_multiple_statements;
+                    "Multiple statements"
+                    `Quick
+                    test_parse_multiple_statements;
+
                 (* TODO(dlsmith): Synchronization. *)
             ]);
         ]

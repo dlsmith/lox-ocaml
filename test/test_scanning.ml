@@ -204,84 +204,84 @@ let () =
         [
             ("Single char token", [
                 Alcotest.test_case
-                "Parse single char token"
-                `Quick
-                test_parse_single_char_token;
+                    "Parse single char token"
+                    `Quick
+                    test_parse_single_char_token;
                 Alcotest.test_case
-                "Failure for unexpected char"
-                `Quick
-                test_parse_unexpected_char;
+                    "Failure for unexpected char"
+                    `Quick
+                    test_parse_unexpected_char;
                 Alcotest.test_case
-                "Parse single char with whitespace"
-                `Quick
-                test_parse_single_char_with_whitespace;
+                    "Parse single char with whitespace"
+                    `Quick
+                    test_parse_single_char_with_whitespace;
                 Alcotest.test_case
-                "Newline increments line"
-                `Quick
-                test_newline_increments_line;
+                    "Newline increments line"
+                    `Quick
+                    test_newline_increments_line;
                 Alcotest.test_case
-                "Parse single char after comment"
-                `Quick
-                test_parse_single_char_after_comment;
+                    "Parse single char after comment"
+                    `Quick
+                    test_parse_single_char_after_comment;
                 Alcotest.test_case
-                "Slash token without comment"
-                `Quick
-                test_slash_token_without_comment;
+                    "Slash token without comment"
+                    `Quick
+                    test_slash_token_without_comment;
             ]);
             ("Multi char token", [
                 Alcotest.test_case
-                "Parse multi-char token"
-                `Quick
-                test_multi_char_token;
+                    "Parse multi-char token"
+                    `Quick
+                    test_multi_char_token;
                 Alcotest.test_case
-                "Parse keyword and identifier with overlap"
-                `Quick
-                test_keyword_and_identifier_with_overlap;
+                    "Parse keyword and identifier with overlap"
+                    `Quick
+                    test_keyword_and_identifier_with_overlap;
             ]);
             ("Literals", [
                 Alcotest.test_case
-                "Parse string literal"
-                `Quick
-                test_parse_string_literal;
+                    "Parse string literal"
+                    `Quick
+                    test_parse_string_literal;
                 Alcotest.test_case
-                "Handle unterminated string"
-                `Quick
-                test_handle_unterminated_string;
+                    "Handle unterminated string"
+                    `Quick
+                    test_handle_unterminated_string;
                 Alcotest.test_case
-                "Unterminated string has correct position"
-                `Quick
-                test_unterminated_string_has_correct_position;
+                    "Unterminated string has correct position"
+                    `Quick
+                    test_unterminated_string_has_correct_position;
                 Alcotest.test_case
-                "Parse int literal"
-                `Quick
-                test_parse_int_literal;
+                    "Parse int literal"
+                    `Quick
+                    test_parse_int_literal;
                 Alcotest.test_case
-                "Parse float literal"
-                `Quick
-                test_parse_float_literal;
+                    "Parse float literal"
+                    `Quick
+                    test_parse_float_literal;
                 Alcotest.test_case
-                "Parse float literal without fractional"
-                `Quick
-                test_parse_float_literal_without_fractional;
+                    "Parse float literal without fractional"
+                    `Quick
+                    test_parse_float_literal_without_fractional;
             ]);
             ("Termination cases", [
                 Alcotest.test_case
-                "Produces EOF at end"
-                `Quick
-                test_produces_EOF_at_end;
+                    "Produces EOF at end"
+                    `Quick
+                    test_produces_EOF_at_end;
                 Alcotest.test_case
-                "No change after EOF"
-                `Quick
-                test_no_change_after_EOF;
+                    "No change after EOF"
+                    `Quick
+                    test_no_change_after_EOF;
             ]);
             ("Multi token scan", [
                 Alcotest.test_case
-                "Multiple tokens"
-                `Quick
-                test_multi_token_scan;
+                    "Multiple tokens"
+                    `Quick
+                    test_multi_token_scan;
                 Alcotest.test_case
-                "Captures multiple errors"
-                `Quick
-                test_captures_multiple_errors;
+                    "Captures multiple errors"
+                    `Quick
+                    test_captures_multiple_errors;
             ]);
         ]
