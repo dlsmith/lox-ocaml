@@ -1,16 +1,18 @@
+module Env = Evaluation.Env
+
 let literal_testable =
     Alcotest.testable Ast.pp_literal Ast.equal_literal
 
 let test_contains_with_empty_env () =
-    let env = Evaluation.Env.make ~parent:None in
+    let env = Env.make ~parent:None in
     Alcotest.(check bool)
         "Does not contain"
         false
-        (Evaluation.Env.contains env "a")
+        (Env.contains env "a")
 
 let test_set_fails_for_undefined () =
-    let env = Evaluation.Env.make ~parent:None in
-    match Evaluation.Env.set env "a" Ast.True with
+    let env = Env.make ~parent:None in
+    match Env.set env "a" Ast.True with
     | Ok _ -> Alcotest.fail "Expected `set` to fail"
     | Error message ->
         Alcotest.(check string)
@@ -19,25 +21,22 @@ let test_set_fails_for_undefined () =
             message
 
 let test_set_in_parent_scope () =
-    (* TODO(dlsmith): Pull out `Env` just within this function? *)
-    let parent = Evaluation.Env.make ~parent:None in
-    let parent = Evaluation.Env.define parent "a" (Ast.String "parent") in
-    let child = Evaluation.Env.make ~parent:(Some (ref parent)) in
-    let child =
-        Evaluation.Env.set child "a" (Ast.String "child") |> Result.get_ok
-    in
+    let parent = Env.make ~parent:None in
+    let parent = Env.define parent "a" (Ast.String "parent") in
+    let child = Env.make ~parent:(Some (ref parent)) in
+    let child = Env.set child "a" (Ast.String "child") |> Result.get_ok in
     Alcotest.(check bool)
         "Child does not contain"
         false
-        (Evaluation.Env.contains child "a");
+        (Env.contains child "a");
     Alcotest.(check bool)
         "Parent does contain"
         true
-        (Evaluation.Env.contains parent "a");
+        (Env.contains parent "a");
     Alcotest.(check literal_testable)
         "Parent contains value set via child"
         (Ast.String "child")
-        (Evaluation.Env.get parent "a" |> Result.get_ok)
+        (Env.get parent "a" |> Result.get_ok)
 
 let evaluate_expr source =
     let (let*) = Result.bind in
