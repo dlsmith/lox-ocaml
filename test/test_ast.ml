@@ -26,7 +26,7 @@ let test_to_sexp () =
     Alcotest.(check string)
         "Same string"
         expected
-        (Ast.to_sexp ast)
+        (Ast.expr_to_sexp ast)
 
 let () =
     Alcotest.run "Parsing test suite"

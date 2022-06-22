@@ -26,7 +26,7 @@ let check_parse_ok tokens expected_sexp =
             Alcotest.(check string)
                 "Same s-exp"
                 expected_sexp
-                (Ast.to_sexp expr)
+                (Ast.expr_to_sexp expr)
         )
         ~error:(fun _ -> Alcotest.fail "Expected parse ok")
 
@@ -100,44 +100,6 @@ let test_binary_expr_is_invalid_assignment_target () =
     ] in
     check_parse_error tokens "Invalid assignment target."
 
-let test_parse_print_statement () =
-    let open Token in
-    let expected_expr = "(+ 1. 2.)" in
-    let tokens = create_tokens [
-        Print; Number 1.; Plus; Number 2.; Semicolon; EOF;
-    ] in
-    match Parsing.parse_statement tokens with
-    | Ok (Ast.Print expr, [ { token_type=EOF; _ } ]) ->
-        Alcotest.(check string)
-            "Same string"
-            expected_expr
-            (Ast.to_sexp expr)
-    | Error (message, _) -> Alcotest.fail ("Parsing error: " ^ message)
-    | _ -> Alcotest.fail "Unexpected parse"
-
-let test_parse_var_declaration () =
-    let open Token in
-    let var_name = "some_name" in
-    let expected_init_expr = "(+ 1. 2.)" in
-    let tokens = create_tokens [
-        Var; Identifier var_name; Equal;
-        Number 1.; Plus; Number 2.; Semicolon; EOF;
-    ]
-    in
-    match Parsing.parse_declaration tokens with
-    | Ok (Ast.VariableDeclaration (name, Some init_expr),
-          [ { token_type=EOF; _ } ]) ->
-        Alcotest.(check string)
-            "Same string"
-            var_name
-            name;
-        Alcotest.(check string)
-            "Same string"
-            expected_init_expr
-            (Ast.to_sexp init_expr)
-    | Error (message, _) -> Alcotest.fail ("Parsing error: " ^ message)
-    | _ -> Alcotest.fail "Unexpected parse"
-
 let test_parse_incomplete_statement () =
     let open Token in
     let tokens = create_tokens [
@@ -152,29 +114,60 @@ let test_parse_incomplete_statement () =
     | Error (_, []) -> Alcotest.fail "Expected EOF token to remain"
     | _ -> Alcotest.fail "Expected parsing error"
 
+let test_parse_incomplete_block () =
+    let open Token in
+    let tokens = create_tokens [
+        LeftBrace; Number 1.; Plus; Number 2.; Semicolon; (* No brace *) EOF;
+    ] in
+    match Parsing.parse_statement tokens with
+    | Error (message, [ { token_type=EOF; _ } ]) ->
+        Alcotest.(check string)
+            "Same error"
+            "Expect '}' after block."
+            message
+    | Error (_, []) -> Alcotest.fail "Expected EOF token to remain"
+    | _ -> Alcotest.fail "Expected parsing error"
+
+let test_block_statement () =
+    let open Token in
+    let var_name = "a" in
+    let expected = "(block ((var-decl a 2.) (print (+ 1. (var a)))))" in
+    let tokens = create_tokens [
+        LeftBrace;
+        (* var a = 2.; *)
+        Var; Identifier var_name; Equal; Number 2.; Semicolon;
+        (* print 1. + a; *)
+        Print; Number 1.; Plus; Identifier var_name; Semicolon;
+        RightBrace;
+        EOF;
+    ] in
+    match Parsing.parse_statement tokens with
+    | Ok (stmt, [ { token_type=EOF; _ } ]) ->
+        Alcotest.(check string)
+            "Same string"
+            expected
+            (Ast.stmt_to_sexp stmt)
+    | _ -> Alcotest.fail "Expected parse ok"
+
 let test_parse_multiple_statements () =
     let open Token in
-    let expected_expr1 = "(+ 1. 2.)" in
-    let expected_expr2 = "(- 3. 4.)" in
+    let var_name = "a" in
+    let expected =
+        "((var-decl a 2.) (expr (+ 1. (var a))) (print (- 3. 4.)))" in
     let tokens = create_tokens [
-        Number 1.; Plus; Number 2.; Semicolon;
-        Print; Number 3.; Minus; Number 4.; Semicolon; EOF;
+        (* var a = 2. ; *)
+        Var; Identifier var_name; Equal; Number 2.; Semicolon;
+        (* 1. + a; *)
+        Number 1.; Plus; Identifier var_name; Semicolon;
+        (* print 3. + 4.; *)
+        Print; Number 3.; Minus; Number 4.; Semicolon;
+        EOF;
     ] in
-    let stmt_results = Parsing.parse_program tokens in
-    (* TODO(dlsmith): Refactor to clean this up a bit, so we're not pattern
-       matching down to expressions which we then serialize. E.g., could add
-       support for full programs in `to_sexp`. *)
-    match stmt_results with
-    | [ Ok (Expression expr1); Ok (Print expr2) ] ->
-        Alcotest.(check string)
-            "Same string"
-            expected_expr1
-            (Ast.to_sexp expr1);
-        Alcotest.(check string)
-            "Same string"
-            expected_expr2
-            (Ast.to_sexp expr2)
-    | _ -> Alcotest.fail "Unexpected parse"
+    let stmts = Parsing.parse_program tokens |> List.map Result.get_ok in
+    Alcotest.(check string)
+        "Same string"
+        expected
+        (Ast.stmts_to_sexp stmts)
 
 let () =
     Alcotest.run "Parsing test suite"
@@ -215,27 +208,23 @@ let () =
             ]);
             ("Parse statements", [
                 Alcotest.test_case
-                "Print statement"
-                `Quick
-                test_parse_print_statement;
-                Alcotest.test_case
                 "Incomplete statement"
                 `Quick
                 test_parse_incomplete_statement;
                 Alcotest.test_case
-                "Variable declaration"
+                "Incomplete block"
                 `Quick
-                test_parse_var_declaration;
-                (* TODO(dlsmith): Unintialized var and error cases. *)
-                (* TODO(dlsmith): Synchronization. *)
-                (* TODO(dlsmith): Block parsing. This can be part of the
-                   refactor to better support statements in general, rather
-                   than pattern matching down to the inner expression. *)
+                test_parse_incomplete_block;
+                Alcotest.test_case
+                "Block statement"
+                `Quick
+                test_block_statement;
             ]);
             ("Parse program", [
                 Alcotest.test_case
                 "Multiple statements"
                 `Quick
                 test_parse_multiple_statements;
+                (* TODO(dlsmith): Synchronization. *)
             ]);
         ]

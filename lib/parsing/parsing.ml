@@ -173,7 +173,7 @@ let rec parse_statement tokens =
     | Some Token.LeftBrace ->
         let rec parse_block tokens =
             match Option.map get_token_type (Util.head tokens) with
-            | None | Some Token.RightBrace ->
+            | None | Some Token.EOF | Some Token.RightBrace ->
                 Ok ([], tokens)
             | _ ->
                 let* stmt, tokens = parse_declaration tokens in

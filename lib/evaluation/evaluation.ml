@@ -63,14 +63,6 @@ let of_bool (value : bool) : literal =
     | true -> True
     | false -> False
 
-let get_line_number (expr : expression) : line_number =
-    match expr with
-    | Literal (_, line_number)
-    | Unary (_, _, line_number)
-    | Binary (_, _, _, line_number)
-    | Grouping (_, line_number)
-    | Assignment (_, _, line_number) -> line_number
-
 let error message line =
     Error (Printf.sprintf "[line %i] Error: %s" line message)
 
@@ -131,8 +123,7 @@ let rec evaluate_statement env stmt =
         Ok (Some value, env)
     | Print expr ->
         let* value, env = evaluate_expression env expr in
-        let line_number = get_line_number expr in
-        Literal (value, line_number) |> to_sexp |> print_endline;
+        value |> literal_to_string |> print_endline;
         Ok (None, env)
     | Block stmts ->
         let parent_env = env in

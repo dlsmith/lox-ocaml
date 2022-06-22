@@ -53,15 +53,14 @@ let literal_to_string = function
     | Nil -> "nil"
 
 (** Serialize an `expression` AST as an s-expression. *)
-let rec to_sexp expression =
-    match expression with
+let rec expr_to_sexp = function
     | Literal (literal, _) -> literal_to_string literal
     | Unary (op, subexpr, _) ->
         let op_str = match op with
         | Negate -> "-"
         | LogicalNot -> "!"
         in
-        Printf.sprintf "(%s %s)" op_str (to_sexp subexpr)
+        Printf.sprintf "(%s %s)" op_str (expr_to_sexp subexpr)
     | Binary (op, subexpr1, subexpr2, _) ->
         let op_str = match op with
         | EqualEqual -> "=="
@@ -78,9 +77,33 @@ let rec to_sexp expression =
         Printf.sprintf
             "(%s %s %s)"
             op_str
-            (to_sexp subexpr1)
-            (to_sexp subexpr2)
+            (expr_to_sexp subexpr1)
+            (expr_to_sexp subexpr2)
     | Grouping (subexpr, _) ->
-        Printf.sprintf "(group %s)" (to_sexp subexpr)
+        Printf.sprintf "(group %s)" (expr_to_sexp subexpr)
     | Assignment (name, expr, _) ->
-        Printf.sprintf "(assign %s %s)" name (to_sexp expr)
+        Printf.sprintf "(assign %s %s)" name (expr_to_sexp expr)
+
+let rec stmt_to_sexp = function
+    | Expression expr ->
+        Printf.sprintf "(expr %s)" (expr_to_sexp expr)
+    | Print expr ->
+        Printf.sprintf "(print %s)" (expr_to_sexp expr)
+    | VariableDeclaration (name, Some expr) ->
+        Printf.sprintf "(var-decl %s %s)" name (expr_to_sexp expr)
+    | VariableDeclaration (name, None) ->
+        Printf.sprintf "(var-decl %s)" name
+    | Block stmts ->
+        Printf.sprintf "(block %s)" (stmts_to_sexp stmts)
+
+and stmts_to_sexp stmts =
+    let sexps = List.map stmt_to_sexp stmts in
+    match sexps with
+    | [] -> ""
+    | [sexp] -> sexp
+    | sexp :: sexps ->
+        Printf.sprintf
+            "(%s)"
+            (List.fold_left (fun a b -> a ^ " " ^ b)
+            sexp
+            sexps)
