@@ -22,6 +22,11 @@ let match_identifier = function
     | Token.{ token_type=Identifier name; _ } -> Some name
     | _ -> None
 
+let consume_or_error tokens token_type message =
+    match consume tokens (match_type token_type) with
+    | Some _, tokens -> Ok tokens
+    | None, tokens -> Error (message, tokens)
+
 let rec parse_left_assoc_binary_ops ~subparser match_op tokens =
     let* expr, tokens = subparser tokens in
     let op_line =
@@ -150,9 +155,13 @@ and parse_expression tokens =
 
 let parse_statement_variant tokens create_stmt =
     let* expr, tokens = parse_expression tokens in
-    match consume tokens (match_type Token.Semicolon) with
-    | Some _, tokens -> Ok (create_stmt expr, tokens)
-    | None, tokens -> Error ("Expect ';' after value.", tokens)
+    let* tokens =
+        consume_or_error
+            tokens
+            Token.Semicolon
+            "Expect ';' after value."
+    in
+    Ok (create_stmt expr, tokens)
 
 (* statement -> ( "print" expression | block | expression ) ";" ; *)
 let rec parse_statement tokens =
@@ -174,10 +183,13 @@ let rec parse_statement tokens =
         in
 
         let* stmts, tokens = parse_block (Util.tail tokens) in
-        begin match consume tokens (match_type Token.RightBrace) with
-        | Some _, tokens -> Ok (Block stmts, tokens)
-        | None, tokens -> Error ("Expect '}' after block.", tokens)
-        end
+        let* tokens =
+            consume_or_error
+                tokens
+                Token.RightBrace
+                "Expect '}' after block."
+        in
+        Ok (Block stmts, tokens)
     | _ ->
         parse_statement_variant
             tokens
@@ -192,18 +204,19 @@ and parse_declaration tokens =
             (* Parse the initializer expression if given *)
             let* init_expr, tokens =
                 match consume tokens (match_type Token.Equal) with
-                | None, tokens -> Ok (None, tokens)
                 | Some _, tokens ->
                     let* expr, tokens = parse_expression tokens in
                     Ok (Some expr, tokens)
+                | None, tokens -> Ok (None, tokens)
             in
             (* Make sure we finish with a semicolon before returning *)
-            begin match consume tokens (match_type Token.Semicolon) with
-            | None, tokens ->
-                Error ("Expect ';' after variable declaration.", tokens)
-            | Some _, tokens ->
-                Ok (VariableDeclaration (var_name, init_expr), tokens)
-            end
+            let* tokens =
+                consume_or_error
+                    tokens
+                    Token.Semicolon
+                    "Expect ';' after variable declaration."
+            in
+            Ok (VariableDeclaration (var_name, init_expr), tokens)
         | None, tokens -> Error ("Expect variable name.", tokens)
         end
     | None, tokens -> parse_statement tokens
