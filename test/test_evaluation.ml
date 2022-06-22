@@ -180,6 +180,13 @@ let test_else_not_executed_for_true_condition () =
         (Ok (Some (Ast.Number 15.)))
         (source |> Interpreter.run)
 
+let test_simple_program_with_while_loop () =
+    let source = "var a = 0.; while (a < 5.) a = a + 1.; a;" in
+    Alcotest.(check (result (option literal_testable) string))
+        "Expected value"
+        (Ok (Some (Ast.Number 5.)))
+        (source |> Interpreter.run)
+
 let () =
     Alcotest.run "Evaluation test suite"
         [
@@ -264,5 +271,9 @@ let () =
                     "Else not executed for true condition"
                     `Quick
                     test_else_not_executed_for_true_condition;
+                Alcotest.test_case
+                    "Simple program with while loop"
+                    `Quick
+                    test_simple_program_with_while_loop;
             ]);
         ]

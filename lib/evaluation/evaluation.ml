@@ -127,7 +127,15 @@ let rec evaluate_expression env = function
         | Ok env -> Ok (value, env)
         | Error message -> error message line
 
-let rec evaluate_statement env stmt =
+let rec evaluate_while env cond body =
+    let* cond_value, env = evaluate_expression env cond in
+    if is_truthy cond_value then
+        let* _, env = evaluate_statement env body in
+        evaluate_while env cond body
+    else
+        Ok (None, env)
+
+and evaluate_statement env stmt =
     match stmt with
     | Expression expr ->
         let* value, env = evaluate_expression env expr in
@@ -141,6 +149,7 @@ let rec evaluate_statement env stmt =
             | Some stmt -> evaluate_statement env stmt
             | None -> Ok (None, env)
             end
+    | While (cond_expr, body) -> evaluate_while env cond_expr body
     | Print expr ->
         let* value, env = evaluate_expression env expr in
         value |> literal_to_string |> print_endline;

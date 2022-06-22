@@ -208,6 +208,23 @@ let rec parse_statement tokens =
         | None, tokens ->
             Ok (If (condition, then_branch, None), tokens)
         end
+    | Some Token.While ->
+        let tokens = Util.tail tokens in
+        let* tokens =
+            consume_or_error
+                tokens
+                Token.LeftParen
+                "Expect '(' after 'while'."
+        in
+        let* condition, tokens = parse_expression tokens in
+        let* tokens =
+            consume_or_error
+                tokens
+                Token.RightParen
+                "Expect ')' after if condition."
+        in
+        let* body, tokens = parse_statement tokens in
+        Ok (While (condition, body), tokens)
     (* block -> "{" declaration* "}" ; *)
     | Some Token.LeftBrace ->
         let rec parse_block tokens =
