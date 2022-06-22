@@ -3,30 +3,25 @@ open Ast
 let (let*) = Result.bind
 
 module Env = struct
+    module Table = Map.Make(String)
+
     type t = {
-        (* TODO(dlsmith): Use more efficient data structure. *)
         (* TODO(dlsmith): Can we do this without mutability (i.e., refs)? *)
-        values: (string * literal) list ref;
+        values: literal Table.t ref;
         parent: t ref option
     }
 
-    let make ~parent = {values=ref []; parent=parent}
+    let make ~parent = {values=ref Table.empty; parent=parent}
 
-    let contains t key =
-        List.mem_assoc key !(t.values)
+    let contains t key = Table.mem key !(t.values)
 
     let get_parent env = env.parent
 
     let define env key value =
-        let base_values = if contains env key
-            then List.remove_assoc key !(env.values)
-            else !(env.values) in
-        env.values := (key, value) :: base_values;
+        env.values := Table.add key value !(env.values);
         env
 
     let rec set env key value =
-        (* TODO(dlsmith): Lots of unnecessary `contains` checks due to use of
-           `List`. *)
         if contains env key
             then Ok (define env key value)
             else match env.parent with
@@ -37,7 +32,7 @@ module Env = struct
             | None -> Error ("Undefined variable '" ^ key ^ "'.")
 
     let rec get env key =
-        match List.assoc_opt key !(env.values), env.parent with
+        match Table.find_opt key !(env.values), env.parent with
         | Some v, _ -> Ok v
         | None, Some env_ref -> get !env_ref key
         | None, None -> Error ("Undefined variable '" ^ key ^ "'.")
