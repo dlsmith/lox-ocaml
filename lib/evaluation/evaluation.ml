@@ -135,8 +135,7 @@ let rec evaluate_while env cond body =
     else
         Ok (None, env)
 
-and evaluate_statement env stmt =
-    match stmt with
+and evaluate_statement env = function
     | Expression expr ->
         let* value, env = evaluate_expression env expr in
         Ok (Some value, env)
@@ -169,8 +168,7 @@ and evaluate_statement env stmt =
         in
         Ok (None, Env.define env name value)
 
-and evaluate_statements env stmts =
-    match stmts with
+and evaluate_statements env = function
     (* In practice, this base case won't be executed unless this function is
        called explicitly with an empty list of statements *)
     | [] -> Ok None
