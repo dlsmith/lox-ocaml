@@ -84,6 +84,22 @@ let rec evaluate_expression env = function
         | LogicalNot -> Ok (value |> is_truthy |> not |> of_bool, env)
         end
     | Grouping (subexpr, _) -> evaluate_expression env subexpr
+    (* Logical and *)
+    | Binary (And, subexpr1, subexpr2, LineNumber _) ->
+        let* l, env = evaluate_expression env subexpr1 in
+        if l |> is_truthy |> not then
+            (* Short-circuit *)
+            Ok (l, env)
+        else
+            evaluate_expression env subexpr2
+    (* Logical or *)
+    | Binary (Or, subexpr1, subexpr2, LineNumber _) ->
+        let* l, env = evaluate_expression env subexpr1 in
+        if l |> is_truthy then
+            (* Short-circuit *)
+            Ok (l, env)
+        else
+            evaluate_expression env subexpr2
     | Binary (op, subexpr1, subexpr2, LineNumber line) ->
         let* l, env = evaluate_expression env subexpr1 in
         let* r, env = evaluate_expression env subexpr2 in

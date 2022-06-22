@@ -82,6 +82,48 @@ let test_evaluate_invalid_operands () =
         "[line 0] Error: Operands must be numbers."
         (source |> evaluate_expr |> Result.get_error)
 
+let test_logical_and () =
+    let source = "\"first\" and \"second\"" in
+    Alcotest.(check literal_testable)
+        "Produces second value"
+        (Ast.String "second")
+        (source
+        |> evaluate_expr
+        |> Util.get_ok
+        |> (fun (v, _) -> v))
+
+let test_logical_and_short_circuits () =
+    (* Evaluating the undefined variable would cause an error. *)
+    let source = "nil and undefined" in
+    Alcotest.(check literal_testable)
+        "Produces first value"
+        Ast.Nil
+        (source
+        |> evaluate_expr
+        |> Util.get_ok
+        |> (fun (v, _) -> v))
+
+let test_logical_or () =
+    let source = "nil or \"second\"" in
+    Alcotest.(check literal_testable)
+        "Produces second value"
+        (Ast.String "second")
+        (source
+        |> evaluate_expr
+        |> Util.get_ok
+        |> (fun (v, _) -> v))
+
+let test_logical_or_short_circuits () =
+    (* Evaluating the undefined variable would cause an error. *)
+    let source = "\"truthy\" or undefined" in
+    Alcotest.(check literal_testable)
+        "Produces first value"
+        (Ast.String "truthy")
+        (source
+        |> evaluate_expr
+        |> Util.get_ok
+        |> (fun (v, _) -> v))
+
 let test_simple_program_with_variable_declaration () =
     let source = "var a = \"one\" + \"two\"; a + \"three\";" in
     Alcotest.(check literal_testable)
@@ -172,6 +214,22 @@ let () =
                     "Non-numeric operands"
                     `Quick
                     test_evaluate_invalid_operands;
+                Alcotest.test_case
+                    "Logical and"
+                    `Quick
+                    test_logical_and;
+                Alcotest.test_case
+                    "Logical and short-circuits"
+                    `Quick
+                    test_logical_and_short_circuits;
+                Alcotest.test_case
+                    "Logical or"
+                    `Quick
+                    test_logical_or;
+                Alcotest.test_case
+                    "Logical or short-circuits"
+                    `Quick
+                    test_logical_or_short_circuits;
             ]);
             ("Program", [
                 Alcotest.test_case

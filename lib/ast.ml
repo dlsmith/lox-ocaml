@@ -22,6 +22,8 @@ type binary_op =
     | Minus
     | Star
     | Slash
+    | And
+    | Or
 
 type line_number = LineNumber of int
 
@@ -74,6 +76,8 @@ let rec expr_to_sexp = function
         | Minus -> "-"
         | Star -> "*"
         | Slash -> "/"
+        | And -> "and"
+        | Or -> "or"
         in
         Printf.sprintf
             "(%s %s %s)"

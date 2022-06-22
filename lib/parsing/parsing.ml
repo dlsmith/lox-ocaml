@@ -133,9 +133,29 @@ and parse_equality tokens =
         end
         tokens
 
-(* assignment -> IDENTIFIER "=" assignment | equality *)
+(* logic_or -> equality ( "and" equality )* ; *)
+and parse_logical_and tokens =
+    parse_left_assoc_binary_ops
+        ~subparser:parse_equality
+        begin function
+            | Token.And -> Some And
+            | _ -> None
+        end
+        tokens
+
+(* logic_or -> logic_and ( "or" logic_and )* ; *)
+and parse_logical_or tokens =
+    parse_left_assoc_binary_ops
+        ~subparser:parse_logical_and
+        begin function
+            | Token.Or -> Some Or
+            | _ -> None
+        end
+        tokens
+
+(* assignment -> IDENTIFIER "=" assignment | logic_or *)
 and parse_assignment tokens =
-    let* expr, tokens = parse_equality tokens in
+    let* expr, tokens = parse_logical_or tokens in
     match consume tokens (match_type Token.Equal) with
     | Some equal_token, tokens ->
         (* Now we know we're parsing an assignment, so we should check the
