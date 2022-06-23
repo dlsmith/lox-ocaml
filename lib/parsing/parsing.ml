@@ -1,13 +1,14 @@
 open Ast
 
+let (let*) = Result.bind
+
 exception Parse_error of string
 
 type token_list = Token.token list
 
-let get_token_type token =
-    Token.(token.token_type)
+let get_token_type token = Token.(token.token_type)
 
-let (let*) = Result.bind
+let peek tokens = Option.map get_token_type (Util.head tokens)
 
 (* Consume a single token if it passes the given predicate. *)
 let consume tokens pred =
@@ -64,7 +65,7 @@ let rec parse_primary tokens =
     | Token.Identifier id -> Ok (Literal (Variable id, line_number), tokens)
     | Token.LeftParen ->
         let* expr, tokens = parse_expression tokens in
-        begin match Option.map get_token_type (Util.head tokens) with
+        begin match peek tokens with
         | Some Token.RightParen ->
             Ok (Grouping (expr, line_number), (Util.tail tokens))
         | _ -> Error ("Expect ')' after expression.", tokens)
@@ -175,7 +176,7 @@ and parse_expression tokens =
 
 (* statement -> ( "print" expression | block | expression ) ";" ; *)
 let rec parse_statement tokens =
-    match Option.map get_token_type (Util.head tokens) with
+    match peek tokens with
     | Some Token.Print ->
         let* expr, tokens = parse_expression (Util.tail tokens) in
         let* tokens =
@@ -228,7 +229,7 @@ let rec parse_statement tokens =
     (* block -> "{" declaration* "}" ; *)
     | Some Token.LeftBrace ->
         let rec parse_block tokens =
-            match Option.map get_token_type (Util.head tokens) with
+            match peek tokens with
             | None | Some Token.EOF | Some Token.RightBrace ->
                 Ok ([], tokens)
             | _ ->
@@ -282,7 +283,7 @@ and parse_declaration tokens =
     | None, tokens -> parse_statement tokens
 
 let rec synchronize tokens =
-    match Option.map get_token_type (Util.head tokens) with
+    match peek tokens with
     (* We've run out of tokens *)
     | None
     | Some Token.EOF
