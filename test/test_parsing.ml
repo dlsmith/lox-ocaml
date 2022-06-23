@@ -167,6 +167,51 @@ let test_else_bound_to_nearest_if () =
             (Ast.stmt_to_sexp stmt)
     | _ -> Alcotest.fail "Expected parse ok"
 
+let clean_sexp s =
+    s
+    (* TODO(dlsmith): Clean this up or use s-exp comparison that ignores
+       whitespace. *)
+    |> Str.global_replace (Str.regexp "[ \t\n]+") " "
+    |> Str.global_replace (Str.regexp "( ") "("
+    |> Str.global_replace (Str.regexp " )") ")"
+    |> String.trim
+
+let test_for_loop_desugaring () =
+    let open Token in
+    let expected = clean_sexp "
+        (block (
+            (var-decl i 0.)
+            (while
+                (< (var i) 5.)
+                (block (
+                    (print (var i))
+                    (expr
+                        (assign
+                            i
+                            (+ (var i) 1.))))))))" in
+
+    let tokens = create_tokens [
+        For;
+        LeftParen;
+        (* Initializer *)
+        Var; Identifier "i"; Equal; Number 0.; Semicolon;
+        (* Condition *)
+        Identifier "i"; Less; Number 5.; Semicolon;
+        (* Increment *)
+        Identifier "i"; Equal; Identifier "i"; Plus; Number 1.;
+        RightParen;
+        (* Body *)
+        Print; Identifier "i"; Semicolon;
+        EOF
+    ] in
+    match Parsing.parse_statement tokens with
+    | Ok (stmt, [ { token_type=EOF; _ } ]) ->
+        Alcotest.(check string)
+            "Same string"
+            expected
+            (Ast.stmt_to_sexp stmt)
+    | _ -> Alcotest.fail "Expected parse ok"
+
 let test_parse_multiple_statements () =
     let open Token in
     let var_name = "a" in
@@ -268,6 +313,10 @@ let () =
                     "Else bound to nearest if"
                     `Quick
                     test_else_bound_to_nearest_if;
+                Alcotest.test_case
+                    "For loop desugaring"
+                    `Quick
+                    test_for_loop_desugaring;
             ]);
             ("Parse program", [
                 Alcotest.test_case

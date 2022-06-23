@@ -174,10 +174,115 @@ and parse_assignment tokens =
 and parse_expression tokens =
     parse_assignment tokens
 
+let parse_expression_statement tokens =
+    let* expr, tokens = parse_expression tokens in
+    let* tokens =
+        consume_or_error
+            tokens
+            Token.Semicolon
+            "Expect ';' after value."
+    in
+    Ok (Expression expr, tokens)
+
+let to_opt_parse partial_parse =
+    let* parse, tokens = partial_parse in
+    Ok (Some parse, tokens)
+
+let parse_variable_declaration tokens =
+    let* tokens = consume_or_error tokens Token.Var "Expected var" in
+    match consume tokens match_identifier with
+    | Some var_name, tokens ->
+        (* Parse the initializer expression if given *)
+        let* init_expr, tokens =
+            match consume tokens (match_type Token.Equal) with
+            | Some _, tokens -> tokens |> parse_expression |> to_opt_parse
+            | None, tokens -> Ok (None, tokens)
+        in
+        (* Make sure we finish with a semicolon before returning *)
+        let* tokens =
+            consume_or_error
+                tokens
+                Token.Semicolon
+                "Expect ';' after variable declaration."
+        in
+        Ok (VariableDeclaration (var_name, init_expr), tokens)
+    | None, tokens -> Error ("Expect variable name.", tokens)
+
+let rec parse_for_clauses tokens =
+    let* tokens =
+        consume_or_error
+            tokens
+            Token.LeftParen
+            "Expect '(' after 'for'."
+    in
+
+    let* init_opt, tokens = match peek tokens with
+    | Some Token.Semicolon -> Ok (None, Util.tail tokens)
+    | Some Token.Var -> tokens |> parse_variable_declaration |> to_opt_parse
+    | _ -> tokens |> parse_expression_statement |> to_opt_parse
+    in
+
+    let* cond_opt, tokens = match peek tokens with
+    | Some Token.Semicolon -> Ok (None, Util.tail tokens)
+    | _ ->
+        let* expr, tokens = parse_expression tokens in
+        let* tokens = consume_or_error
+            tokens
+            Token.Semicolon
+            "Expect ';' after loop condition."
+        in
+        Ok (Some expr, tokens)
+    in
+
+    let* incr_opt, tokens = match peek tokens with
+    | Some Token.RightParen -> Ok (None, Util.tail tokens)
+    | _ ->
+        let* expr, tokens = parse_expression tokens in
+        let* tokens = consume_or_error
+            tokens
+            Token.RightParen
+            "Expect ')' after for clauses."
+        in
+        Ok (Some expr, tokens)
+    in
+
+    let* body, tokens = parse_statement tokens in
+
+    Ok (init_opt, cond_opt, incr_opt, body, tokens)
+
 (* statement -> ( "print" expression | block | expression ) ";" ; *)
-let rec parse_statement tokens =
-    match peek tokens with
-    | Some Token.Print ->
+and parse_statement tokens =
+    match Util.head tokens with
+    | Some { token_type=Token.For; line } ->
+        (* Parse loop clauses and body, then desugar to `while`. *)
+        let* init_opt, cond_opt, incr_opt, body, tokens =
+            parse_for_clauses (Util.tail tokens)
+        in
+
+        (* Append increment expressiont to body. *)
+        let body = match incr_opt with
+        | Some incr -> Block [body; Expression incr]
+        | None -> body
+        in
+
+        (* Build `while` loop with condition, using `true` by default. *)
+        let cond = match cond_opt with
+        | Some cond -> cond
+        (* TODO(dlsmith): The line number here is approximate. How is error
+           reporting generally handled when desugaring? *)
+        | None -> Literal (True, LineNumber line)
+        in
+
+        let body = While (cond, body) in
+
+        (* Run initializer before beginning loop. *)
+        let body = match init_opt with
+        | Some init -> Block [init; body]
+        | None -> body
+        in
+
+        Ok (body, tokens)
+    | Some { token_type=Token.Print; _ } ->
         let* expr, tokens = parse_expression (Util.tail tokens) in
         let* tokens =
             consume_or_error
@@ -186,7 +291,7 @@ let rec parse_statement tokens =
                 "Expect ';' after value."
         in
         Ok (Print expr, tokens)
-    | Some Token.If ->
+    | Some { token_type=Token.If; _ } ->
         let tokens = Util.tail tokens in
         let* tokens =
             consume_or_error
@@ -209,7 +314,7 @@ let rec parse_statement tokens =
         | None, tokens ->
             Ok (If (condition, then_branch, None), tokens)
         end
-    | Some Token.While ->
+    | Some { token_type=Token.While; _ } ->
         let tokens = Util.tail tokens in
         let* tokens =
             consume_or_error
@@ -227,7 +332,7 @@ let rec parse_statement tokens =
         let* body, tokens = parse_statement tokens in
         Ok (While (condition, body), tokens)
     (* block -> "{" declaration* "}" ; *)
-    | Some Token.LeftBrace ->
+    | Some { token_type=Token.LeftBrace; _ } ->
         let rec parse_block tokens =
             match peek tokens with
             | None | Some Token.EOF | Some Token.RightBrace ->
@@ -246,41 +351,13 @@ let rec parse_statement tokens =
                 "Expect '}' after block."
         in
         Ok (Block stmts, tokens)
-    | _ ->
-        let* expr, tokens = parse_expression tokens in
-        let* tokens =
-            consume_or_error
-                tokens
-                Token.Semicolon
-                "Expect ';' after value."
-        in
-        Ok (Expression expr, tokens)
+    | _ -> parse_expression_statement tokens
 
 (* declaration -> ( "var" IDENTIFIER ( "=" expression )? ) | statement ";" ; *)
 and parse_declaration tokens =
-    match consume tokens (match_type Token.Var) with
-    | Some _, tokens ->
-        begin match consume tokens match_identifier with
-        | Some var_name, tokens ->
-            (* Parse the initializer expression if given *)
-            let* init_expr, tokens =
-                match consume tokens (match_type Token.Equal) with
-                | Some _, tokens ->
-                    let* expr, tokens = parse_expression tokens in
-                    Ok (Some expr, tokens)
-                | None, tokens -> Ok (None, tokens)
-            in
-            (* Make sure we finish with a semicolon before returning *)
-            let* tokens =
-                consume_or_error
-                    tokens
-                    Token.Semicolon
-                    "Expect ';' after variable declaration."
-            in
-            Ok (VariableDeclaration (var_name, init_expr), tokens)
-        | None, tokens -> Error ("Expect variable name.", tokens)
-        end
-    | None, tokens -> parse_statement tokens
+    match peek tokens with
+    | Some Token.Var -> parse_variable_declaration tokens
+    | _ -> parse_statement tokens
 
 let rec synchronize tokens =
     match peek tokens with

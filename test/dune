@@ -11,7 +11,7 @@
 (test
   (name test_parsing)
   (modules test_parsing)
-  (libraries alcotest ast parsing))
+  (libraries str alcotest ast parsing))
 
 (test
   (name test_evaluation)
