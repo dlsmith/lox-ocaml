@@ -119,13 +119,7 @@ let rec stmt_to_sexp = function
         Printf.sprintf "(block %s)" (stmts_to_sexp stmts)
 
 and stmts_to_sexp stmts =
-    let sexps = List.map stmt_to_sexp stmts in
-    match sexps with
-    | [] -> ""
-    | [sexp] -> sexp
-    | sexp :: sexps ->
-        Printf.sprintf
-            "(%s)"
-            (List.fold_left (fun a b -> a ^ " " ^ b)
-            sexp
-            sexps)
+    stmts
+    |> List.map stmt_to_sexp
+    |> String.concat " "
+    |> Printf.sprintf "(%s)"
