@@ -61,6 +61,15 @@ let of_bool (value : bool) : literal =
 let error message line =
     Error (Printf.sprintf "[line %i] Error: %s" line message)
 
+(* Modified version of `List.fold_left_map` to support `Result`. *)
+let fold_left_map f accu l =
+  let rec aux accu l_accu = function
+    | [] -> Ok (accu, List.rev l_accu)
+    | x :: l ->
+        let* accu, x = f accu x in
+        aux accu (x :: l_accu) l in
+  aux accu [] l
+
 let rec evaluate_expression env = function
     | Literal (Variable name, LineNumber line) ->
         begin match Env.get env name with
@@ -79,7 +88,27 @@ let rec evaluate_expression env = function
         | LogicalNot -> Ok (env, value |> is_truthy |> not |> of_bool)
         end
     | Grouping (subexpr, _) -> evaluate_expression env subexpr
-    | Call (_callee, _args, _) -> raise (Failure "TODO")
+    | Call (callee_expr, arg_exprs, LineNumber line) ->
+        let* env, callee = evaluate_expression env callee_expr in
+        let* params, body = match callee with
+        | Function (params, body) ->
+            let num_params = List.length params in
+            let num_args = List.length arg_exprs in
+            if num_params == num_args then
+                Ok (params, body)
+            else
+                let message = Printf.sprintf
+                    "Expected %d arguments but got %d" num_args num_params in
+                error message line
+        | _ -> error "Can only call functions and classes." line
+        in
+        let* env, args = fold_left_map evaluate_expression env arg_exprs in
+        let call_env =
+            List.fold_left2
+                Env.define (Env.make ~parent:(Some (ref env))) params args in
+        let* _ = evaluate_statements call_env body in
+        (* TODO(dlsmith): Support `return` *)
+        Ok (env, Nil)
     (* Logical and *)
     | Binary (And, subexpr1, subexpr2, LineNumber _) ->
         let* env, l = evaluate_expression env subexpr1 in
@@ -128,7 +157,7 @@ let rec evaluate_expression env = function
         | Ok env -> Ok (env, value)
         | Error message -> error message line
 
-let rec evaluate_while env cond body =
+and evaluate_while env cond body =
     let* env, cond_value = evaluate_expression env cond in
     if is_truthy cond_value then
         let* env, _ = evaluate_statement env body in
@@ -162,7 +191,9 @@ and evaluate_statement env = function
            this later.*)
         let* _ = evaluate_statements env stmts in
         Ok (parent_env, None)
-    | FunctionDeclaration (_name, _params, _body) -> raise (Failure "TODO")
+    | FunctionDeclaration (name, params, body) ->
+        let fun_literal = Function (params, body) in
+        Ok (Env.define env name fun_literal, None)
     | VariableDeclaration (name, init_expr) ->
         let* env, value = match init_expr with
         | Some expr -> evaluate_expression env expr
