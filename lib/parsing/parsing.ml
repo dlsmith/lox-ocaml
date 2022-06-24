@@ -21,10 +21,17 @@ let match_identifier = function
     | Token.{ token_type=Identifier name; _ } -> Some name
     | _ -> None
 
-let consume_or_error tokens token_type message =
+let expect token_type context tokens =
     match consume tokens (match_type token_type) with
     | Some _, tokens -> Ok tokens
-    | None, tokens -> Error (message, tokens)
+    | None, tokens ->
+        let message =
+            Printf.sprintf
+                "Expect '%s' %s"
+                (Token.to_string token_type)
+                context
+        in
+        Error (message, tokens)
 
 let rec parse_item_list item_parser tokens =
     let* item, tokens = item_parser tokens in
@@ -98,12 +105,7 @@ and complete_call callee tokens =
         (* TODO(dlsmith): "Can't have more than 255 arguments." *)
         | _ -> parse_item_list parse_expression tokens
         in
-        let* tokens =
-            consume_or_error
-                tokens
-                Token.RightParen
-                "Expect ')' after arguments."
-        in
+        let* tokens = expect Token.RightParen "after arguments." tokens in
         let new_callee = Call (callee, args, LineNumber line) in
         complete_call new_callee tokens
     | _ -> Ok (callee, tokens)
@@ -207,12 +209,7 @@ and parse_expression tokens =
 
 let parse_expression_statement tokens =
     let* expr, tokens = parse_expression tokens in
-    let* tokens =
-        consume_or_error
-            tokens
-            Token.Semicolon
-            "Expect ';' after value."
-    in
+    let* tokens = expect Token.Semicolon "after value." tokens in
     Ok (Expression expr, tokens)
 
 let to_opt_parse partial_parse =
@@ -220,7 +217,7 @@ let to_opt_parse partial_parse =
     Ok (Some parse, tokens)
 
 let parse_variable_declaration tokens =
-    let* tokens = consume_or_error tokens Token.Var "Expected var" in
+    let* tokens = expect Token.Var "for declaration" tokens in
     match consume tokens match_identifier with
     | Some var_name, tokens ->
         (* Parse the initializer expression if given *)
@@ -231,21 +228,12 @@ let parse_variable_declaration tokens =
         in
         (* Make sure we finish with a semicolon before returning *)
         let* tokens =
-            consume_or_error
-                tokens
-                Token.Semicolon
-                "Expect ';' after variable declaration."
-        in
+            expect Token.Semicolon "after variable declaration." tokens in
         Ok (VariableDeclaration (var_name, init_expr), tokens)
     | None, tokens -> Error ("Expect variable name.", tokens)
 
 let rec parse_for_clauses tokens =
-    let* tokens =
-        consume_or_error
-            tokens
-            Token.LeftParen
-            "Expect '(' after 'for'."
-    in
+    let* tokens = expect Token.LeftParen "after 'for'." tokens in
 
     let* init_opt, tokens = match peek tokens with
     | Some Token.Semicolon -> Ok (None, Util.tail tokens)
@@ -257,11 +245,7 @@ let rec parse_for_clauses tokens =
     | Some Token.Semicolon -> Ok (None, Util.tail tokens)
     | _ ->
         let* expr, tokens = parse_expression tokens in
-        let* tokens = consume_or_error
-            tokens
-            Token.Semicolon
-            "Expect ';' after loop condition."
-        in
+        let* tokens = expect Token.Semicolon "after loop condition." tokens in
         Ok (Some expr, tokens)
     in
 
@@ -269,11 +253,7 @@ let rec parse_for_clauses tokens =
     | Some Token.RightParen -> Ok (None, Util.tail tokens)
     | _ ->
         let* expr, tokens = parse_expression tokens in
-        let* tokens = consume_or_error
-            tokens
-            Token.RightParen
-            "Expect ')' after for clauses."
-        in
+        let* tokens = expect Token.RightParen "after for clauses." tokens in
         Ok (Some expr, tokens)
     in
 
@@ -323,28 +303,13 @@ and parse_statement tokens =
         Ok (body, tokens)
     | Some { token_type=Token.Print; _ } ->
         let* expr, tokens = parse_expression (Util.tail tokens) in
-        let* tokens =
-            consume_or_error
-                tokens
-                Token.Semicolon
-                "Expect ';' after value."
-        in
+        let* tokens = expect Token.Semicolon "after value." tokens in
         Ok (Print expr, tokens)
     | Some { token_type=Token.If; _ } ->
         let tokens = Util.tail tokens in
-        let* tokens =
-            consume_or_error
-                tokens
-                Token.LeftParen
-                "Expect '(' after 'if'."
-        in
+        let* tokens = expect Token.LeftParen "after 'if'." tokens in
         let* condition, tokens = parse_expression tokens in
-        let* tokens =
-            consume_or_error
-                tokens
-                Token.RightParen
-                "Expect ')' after if condition."
-        in
+        let* tokens = expect Token.RightParen "after if condition." tokens in
         let* then_branch, tokens = parse_statement tokens in
         begin match consume tokens (match_type Token.Else) with
         | Some _, tokens ->
@@ -355,44 +320,24 @@ and parse_statement tokens =
         end
     | Some { token_type=Token.While; _ } ->
         let tokens = Util.tail tokens in
-        let* tokens =
-            consume_or_error
-                tokens
-                Token.LeftParen
-                "Expect '(' after 'while'."
-        in
+        let* tokens = expect Token.LeftParen "after 'while'." tokens in
         let* condition, tokens = parse_expression tokens in
-        let* tokens =
-            consume_or_error
-                tokens
-                Token.RightParen
-                "Expect ')' after if condition."
-        in
+        let* tokens = expect Token.RightParen "after if condition." tokens in
         let* body, tokens = parse_statement tokens in
         Ok (While (condition, body), tokens)
     | Some { token_type=Token.LeftBrace; _ } ->
         let* stmts, tokens = parse_block (Util.tail tokens) in
-        let* tokens =
-            consume_or_error
-                tokens
-                Token.RightBrace
-                "Expect '}' after block."
-        in
+        let* tokens = expect Token.RightBrace "after block." tokens in
         Ok (Block stmts, tokens)
     | _ -> parse_expression_statement tokens
 
 and parse_function_declaration tokens =
-    let* tokens = consume_or_error tokens Token.Fun "Expected fun" in
+    let* tokens = expect Token.Fun "for declaration" tokens in
     match consume tokens match_identifier with
     | Some var_name, tokens ->
         (* TODO(dlsmith): Could share paren handling logic with
            `complete_call` as well. *)
-        let* tokens =
-            consume_or_error
-                tokens
-                Token.LeftParen
-                "Expect '(' after function name."
-        in
+        let* tokens = expect Token.LeftParen "after function name." tokens in
         let* params, tokens = match peek tokens with
         | Some Token.RightParen -> Ok ([], tokens)
         | _ ->
@@ -400,25 +345,10 @@ and parse_function_declaration tokens =
             (* TODO(dlsmith): "Can't have more than 255 parameters." *)
             parse_item_list subparser tokens
         in
-        let* tokens =
-            consume_or_error
-                tokens
-                Token.RightParen
-                "Expect ')' after parameters."
-        in
-        let* tokens =
-            consume_or_error
-                tokens
-                Token.LeftBrace
-                "Expect '{' before function body."
-        in
+        let* tokens = expect Token.RightParen "after parameters." tokens in
+        let* tokens = expect Token.LeftBrace "before function body." tokens in
         let* body, tokens = parse_block tokens in
-        let* tokens =
-            consume_or_error
-                tokens
-                Token.RightBrace
-                "Expect '}' after block."
-        in
+        let* tokens = expect Token.RightBrace "after block." tokens in
 
         Ok (FunctionDeclaration (var_name, params, body), tokens)
     | None, tokens -> Error ("Expect function name.", tokens)

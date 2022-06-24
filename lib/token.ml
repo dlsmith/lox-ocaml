@@ -56,6 +56,47 @@ type token = {
     line: int;
 } [@@deriving show, eq]
 
+let to_string = function
+    | LeftParen -> "("
+    | RightParen -> ")"
+    | LeftBrace -> "{"
+    | RightBrace -> "}"
+    | Comma -> ","
+    | Dot -> "."
+    | Minus -> "-"
+    | Plus -> "+"
+    | Semicolon -> ";"
+    | Slash -> "/"
+    | Star -> "*"
+    | Bang -> "!"
+    | BangEqual -> "!="
+    | Equal -> "="
+    | EqualEqual -> "=="
+    | Greater -> ">"
+    | GreaterEqual -> ">="
+    | Less -> "<"
+    | LessEqual -> "<="
+    | Identifier name -> name
+    | String value -> "\"" ^ value ^ "\""
+    | Number value -> Float.to_string value
+    | And -> "and"
+    | Class -> "class"
+    | Else -> "else"
+    | False -> "false"
+    | Fun -> "fun"
+    | For -> "for"
+    | If -> "if"
+    | Nil -> "nil"
+    | Or -> "or"
+    | Print -> "print"
+    | Return -> "return"
+    | Super -> "super"
+    | This -> "this"
+    | True -> "true"
+    | Var -> "var"
+    | While -> "while"
+    | EOF -> ""
+
 let as_keyword str =
     match str with
     | "and" -> Some And
