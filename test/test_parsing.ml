@@ -118,12 +118,12 @@ let test_parse_nested_call () =
                     (var callee)
                     ())
                 ((var one)))
-            ((var two) (var three)))" in
+            (2. (+ 1. 2.)))" in
     let tokens = create_tokens [
         Identifier "callee";
         LeftParen; RightParen;
         LeftParen; Identifier "one"; RightParen;
-        LeftParen; Identifier "two"; Comma; Identifier "three"; RightParen;
+        LeftParen; Number 2.; Comma; Number 1.; Plus; Number 2.; RightParen;
     ] in
     check_parse_ok tokens expected
 
@@ -223,6 +223,29 @@ let test_for_loop_desugaring () =
         EOF
     ] in
     match Parsing.parse_statement tokens with
+    | Ok (stmt, [ { token_type=EOF; _ } ]) ->
+        Alcotest.(check string)
+            "Same string"
+            expected
+            (Ast.stmt_to_sexp stmt)
+    | _ -> Alcotest.fail "Expected parse ok"
+
+let test_function_declaration () =
+    let open Token in
+    let expected = clean_sexp "
+        (fun-decl
+            print_sum
+            (a b)
+            ((print (+ (var a) (var b)))))" in
+    let tokens = create_tokens [
+        Fun; Identifier "print_sum";
+        LeftParen; Identifier "a"; Comma; Identifier "b"; RightParen;
+        LeftBrace;
+        Print; Identifier "a"; Plus; Identifier "b"; Semicolon; 
+        RightBrace;
+        EOF;
+    ] in
+    match Parsing.parse_declaration tokens with
     | Ok (stmt, [ { token_type=EOF; _ } ]) ->
         Alcotest.(check string)
             "Same string"
@@ -339,6 +362,10 @@ let () =
                     "For loop desugaring"
                     `Quick
                     test_for_loop_desugaring;
+                Alcotest.test_case
+                    "Function declaration"
+                    `Quick
+                    test_function_declaration;
             ]);
             ("Parse program", [
                 Alcotest.test_case

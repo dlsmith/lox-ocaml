@@ -26,6 +26,20 @@ let consume_or_error tokens token_type message =
     | Some _, tokens -> Ok tokens
     | None, tokens -> Error (message, tokens)
 
+let rec parse_item_list item_parser tokens =
+    let* item, tokens = item_parser tokens in
+    match peek tokens with
+    | Some Token.Comma ->
+        let tokens = Util.tail tokens in
+        let* rest, tokens = parse_item_list item_parser tokens in
+        Ok (item :: rest, tokens)
+    | _ -> Ok ([item], tokens)
+
+let parse_identifier ~error tokens =
+    match consume tokens match_identifier with
+    | Some var_name, tokens -> Ok (var_name, tokens)
+    | None, tokens -> Error (error, tokens)
+
 let rec parse_left_assoc_binary_ops ~subparser match_op tokens =
     let* expr, tokens = subparser tokens in
     let op_line =
@@ -68,15 +82,6 @@ let rec parse_primary tokens =
         end
     | _ -> Error default_error
 
-(* TODO(dlsmith): "Can't have more than 255 arguments." *)
-and parse_expression_list tokens =
-    let* expr, tokens = parse_expression tokens in
-    match peek tokens with
-    | Some Token.Comma ->
-        let* rest, tokens = parse_expression_list (Util.tail tokens) in
-        Ok (expr :: rest, tokens)
-    | _ -> Ok ([expr], tokens)
-
 (* Parse any number of call invocations (optionally with arguments).
 
     callee()(one)(two, three)
@@ -90,7 +95,8 @@ and complete_call callee tokens =
         let tokens = Util.tail tokens in
         let* args, tokens = match peek tokens with
         | Some Token.RightParen -> Ok ([], tokens)
-        | _ -> parse_expression_list tokens
+        (* TODO(dlsmith): "Can't have more than 255 arguments." *)
+        | _ -> parse_item_list parse_expression tokens
         in
         let* tokens =
             consume_or_error
@@ -275,6 +281,15 @@ let rec parse_for_clauses tokens =
 
     Ok (init_opt, cond_opt, incr_opt, body, tokens)
 
+and parse_block tokens =
+    match peek tokens with
+    | None | Some Token.EOF | Some Token.RightBrace ->
+        Ok ([], tokens)
+    | _ ->
+        let* stmt, tokens = parse_declaration tokens in
+        let* stmts, tokens = parse_block tokens in
+        Ok (stmt :: stmts, tokens)
+
 and parse_statement tokens =
     match Util.head tokens with
     | Some { token_type=Token.For; line } ->
@@ -355,18 +370,7 @@ and parse_statement tokens =
         in
         let* body, tokens = parse_statement tokens in
         Ok (While (condition, body), tokens)
-    (* block -> "{" declaration* "}" ; *)
     | Some { token_type=Token.LeftBrace; _ } ->
-        let rec parse_block tokens =
-            match peek tokens with
-            | None | Some Token.EOF | Some Token.RightBrace ->
-                Ok ([], tokens)
-            | _ ->
-                let* stmt, tokens = parse_declaration tokens in
-                let* stmts, tokens = parse_block tokens in
-                Ok (stmt :: stmts, tokens)
-        in
-
         let* stmts, tokens = parse_block (Util.tail tokens) in
         let* tokens =
             consume_or_error
@@ -377,9 +381,52 @@ and parse_statement tokens =
         Ok (Block stmts, tokens)
     | _ -> parse_expression_statement tokens
 
+and parse_function_declaration tokens =
+    let* tokens = consume_or_error tokens Token.Fun "Expected fun" in
+    match consume tokens match_identifier with
+    | Some var_name, tokens ->
+        (* TODO(dlsmith): Could share paren handling logic with
+           `complete_call` as well. *)
+        let* tokens =
+            consume_or_error
+                tokens
+                Token.LeftParen
+                "Expect '(' after function name."
+        in
+        let* params, tokens = match peek tokens with
+        | Some Token.RightParen -> Ok ([], tokens)
+        | _ ->
+            let subparser = parse_identifier ~error:"Expect parameter name." in
+            (* TODO(dlsmith): "Can't have more than 255 parameters." *)
+            parse_item_list subparser tokens
+        in
+        let* tokens =
+            consume_or_error
+                tokens
+                Token.RightParen
+                "Expect ')' after parameters."
+        in
+        let* tokens =
+            consume_or_error
+                tokens
+                Token.LeftBrace
+                "Expect '{' before function body."
+        in
+        let* body, tokens = parse_block tokens in
+        let* tokens =
+            consume_or_error
+                tokens
+                Token.RightBrace
+                "Expect '}' after block."
+        in
+
+        Ok (FunctionDeclaration (var_name, params, body), tokens)
+    | None, tokens -> Error ("Expect function name.", tokens)
+
 and parse_declaration tokens =
     match peek tokens with
     | Some Token.Var -> parse_variable_declaration tokens
+    | Some Token.Fun -> parse_function_declaration tokens
     | _ -> parse_statement tokens
 
 let rec synchronize tokens =

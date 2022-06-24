@@ -162,6 +162,7 @@ and evaluate_statement env = function
            this later.*)
         let* _ = evaluate_statements env stmts in
         Ok (None, parent_env)
+    | FunctionDeclaration (_name, _params, _body) -> raise (Failure "TODO")
     | VariableDeclaration (name, init_expr) ->
         let* value, env = match init_expr with
         | Some expr -> evaluate_expression env expr
