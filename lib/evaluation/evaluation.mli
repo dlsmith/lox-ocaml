@@ -21,12 +21,12 @@ end
 val evaluate_expression :
     Env.t ->
         Ast.expression ->
-            (Ast.literal * Env.t, string) result
+            (Env.t * Ast.literal, string) result
 
 val evaluate_statement :
     Env.t ->
         Ast.statement ->
-            (Ast.literal option * Env.t, string) result
+            (Env.t * Ast.literal option, string) result
 
 val evaluate_program :
     Env.t ->

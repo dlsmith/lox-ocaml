@@ -64,96 +64,96 @@ let error message line =
 let rec evaluate_expression env = function
     | Literal (Variable name, LineNumber line) ->
         begin match Env.get env name with
-        | Ok value -> Ok (value, env)
+        | Ok value -> Ok (env, value)
         | Error message -> error message line
         end
-    | Literal (value, _) -> Ok (value, env)
+    | Literal (value, _) -> Ok (env, value)
     | Unary (op, subexpr, LineNumber line) ->
-        let* value, env = evaluate_expression env subexpr in
+        let* env, value = evaluate_expression env subexpr in
         begin match op with
         | Negate ->
             begin match value with
-            | Number num -> Ok (Number (-.num), env)
+            | Number num -> Ok (env, Number (-.num))
             | _ -> error "Operand must be a number." line
             end
-        | LogicalNot -> Ok (value |> is_truthy |> not |> of_bool, env)
+        | LogicalNot -> Ok (env, value |> is_truthy |> not |> of_bool)
         end
     | Grouping (subexpr, _) -> evaluate_expression env subexpr
     | Call (_callee, _args, _) -> raise (Failure "TODO")
     (* Logical and *)
     | Binary (And, subexpr1, subexpr2, LineNumber _) ->
-        let* l, env = evaluate_expression env subexpr1 in
+        let* env, l = evaluate_expression env subexpr1 in
         if l |> is_truthy |> not then
             (* Short-circuit *)
-            Ok (l, env)
+            Ok (env, l)
         else
             evaluate_expression env subexpr2
     (* Logical or *)
     | Binary (Or, subexpr1, subexpr2, LineNumber _) ->
-        let* l, env = evaluate_expression env subexpr1 in
+        let* env, l = evaluate_expression env subexpr1 in
         if l |> is_truthy then
             (* Short-circuit *)
-            Ok (l, env)
+            Ok (env, l)
         else
             evaluate_expression env subexpr2
     | Binary (op, subexpr1, subexpr2, LineNumber line) ->
-        let* l, env = evaluate_expression env subexpr1 in
-        let* r, env = evaluate_expression env subexpr2 in
+        let* env, l = evaluate_expression env subexpr1 in
+        let* env, r = evaluate_expression env subexpr2 in
         begin match (op, l, r) with
         | Plus, l, r ->
             begin match (l, r) with
             (* String concatenation *)
-            | String l, String r -> Ok (String (l ^ r), env)
+            | String l, String r -> Ok (env, String (l ^ r))
             (* Floating point addition *)
-            | Number l, Number r -> Ok (Number (l +. r), env)
+            | Number l, Number r -> Ok (env, Number (l +. r))
             | _ -> error "Operands must be two numbers or two strings." line
             end
         (* Remaining floating point operations *)
-        | Minus, Number l, Number r -> Ok (Number (l -. r), env)
-        | Star, Number l, Number r -> Ok (Number (l *. r), env)
-        | Slash, Number l, Number r -> Ok (Number (l /. r), env)
+        | Minus, Number l, Number r -> Ok (env, Number (l -. r))
+        | Star, Number l, Number r -> Ok (env, Number (l *. r))
+        | Slash, Number l, Number r -> Ok (env, Number (l /. r))
         (* Comparison operations *)
-        | Less, Number l, Number r -> Ok ((l < r) |> of_bool, env)
-        | LessEqual, Number l, Number r -> Ok ((l <= r) |> of_bool, env)
-        | Greater, Number l, Number r -> Ok ((l > r) |> of_bool, env)
-        | GreaterEqual, Number l, Number r -> Ok ((l >= r) |> of_bool, env)
+        | Less, Number l, Number r -> Ok (env, (l < r) |> of_bool)
+        | LessEqual, Number l, Number r -> Ok (env, (l <= r) |> of_bool)
+        | Greater, Number l, Number r -> Ok (env, (l > r) |> of_bool)
+        | GreaterEqual, Number l, Number r -> Ok (env, (l >= r) |> of_bool)
         (* Boolean equality operations *)
-        | EqualEqual, l, r -> Ok ((is_equal l r) |> of_bool, env)
-        | BangEqual, l, r -> Ok ((is_equal l r) |> not |> of_bool, env)
+        | EqualEqual, l, r -> Ok (env, (is_equal l r) |> of_bool)
+        | BangEqual, l, r -> Ok (env, (is_equal l r) |> not |> of_bool)
         | _ -> error "Operands must be numbers." line
         end
     | Assignment (name, expr, LineNumber line) ->
-        let* value, env = evaluate_expression env expr in
+        let* env, value = evaluate_expression env expr in
         match Env.set env name value with
-        | Ok env -> Ok (value, env)
+        | Ok env -> Ok (env, value)
         | Error message -> error message line
 
 let rec evaluate_while env cond body =
-    let* cond_value, env = evaluate_expression env cond in
+    let* env, cond_value = evaluate_expression env cond in
     if is_truthy cond_value then
-        let* _, env = evaluate_statement env body in
+        let* env, _ = evaluate_statement env body in
         evaluate_while env cond body
     else
-        Ok (None, env)
+        Ok (env, None)
 
 and evaluate_statement env = function
     | Expression expr ->
-        let* value, env = evaluate_expression env expr in
-        Ok (Some value, env)
+        let* env, value = evaluate_expression env expr in
+        Ok (env, Some value)
     | If (cond_expr, then_branch, else_branch_option) ->
-        let* cond, env = evaluate_expression env cond_expr in
+        let* env, cond = evaluate_expression env cond_expr in
         if is_truthy cond then
             evaluate_statement env then_branch
         else
             begin match else_branch_option with
             | Some stmt -> evaluate_statement env stmt
-            | None -> Ok (None, env)
+            | None -> Ok (env, None)
             end
     | While (cond_expr, body) -> evaluate_while env cond_expr body
     | Print expr ->
-        let* value, env = evaluate_expression env expr in
+        let* env, value = evaluate_expression env expr in
         value |> literal_to_string |> print_endline;
-        Ok (None, env)
+        Ok (env, None)
     | Block stmts ->
         let parent_env = env in
         let env = Env.make ~parent:(Some (ref parent_env)) in
@@ -161,21 +161,21 @@ and evaluate_statement env = function
            top-level of the program, not within a block. We may want to revisit
            this later.*)
         let* _ = evaluate_statements env stmts in
-        Ok (None, parent_env)
+        Ok (parent_env, None)
     | FunctionDeclaration (_name, _params, _body) -> raise (Failure "TODO")
     | VariableDeclaration (name, init_expr) ->
-        let* value, env = match init_expr with
+        let* env, value = match init_expr with
         | Some expr -> evaluate_expression env expr
-        | None -> Ok (Nil, env)
+        | None -> Ok (env, Nil)
         in
-        Ok (None, Env.define env name value)
+        Ok (Env.define env name value, None)
 
 and evaluate_statements env = function
     (* In practice, this base case won't be executed unless this function is
        called explicitly with an empty list of statements *)
     | [] -> Ok None
     | stmt :: stmts ->
-        let* output, env = evaluate_statement env stmt in
+        let* env, output = evaluate_statement env stmt in
         (* Return the output if this is the last statement. This enables our
            programs to produce values rather than purely executing for side
            effects.

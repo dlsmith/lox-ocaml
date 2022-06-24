@@ -59,7 +59,7 @@ let test_evaluate_valid_expression () =
         (source
         |> evaluate_expr
         |> Util.get_ok
-        |> (fun (v, _) -> v))
+        |> (fun (_, v) -> v))
 
 let test_evaluate_invalid_negation () =
     let source = "-\"hello\"" in
@@ -90,7 +90,7 @@ let test_logical_and () =
         (source
         |> evaluate_expr
         |> Util.get_ok
-        |> (fun (v, _) -> v))
+        |> (fun (_, v) -> v))
 
 let test_logical_and_short_circuits () =
     (* Evaluating the undefined variable would cause an error. *)
@@ -101,7 +101,7 @@ let test_logical_and_short_circuits () =
         (source
         |> evaluate_expr
         |> Util.get_ok
-        |> (fun (v, _) -> v))
+        |> (fun (_, v) -> v))
 
 let test_logical_or () =
     let source = "nil or \"second\"" in
@@ -111,7 +111,7 @@ let test_logical_or () =
         (source
         |> evaluate_expr
         |> Util.get_ok
-        |> (fun (v, _) -> v))
+        |> (fun (_, v) -> v))
 
 let test_logical_or_short_circuits () =
     (* Evaluating the undefined variable would cause an error. *)
@@ -122,7 +122,7 @@ let test_logical_or_short_circuits () =
         (source
         |> evaluate_expr
         |> Util.get_ok
-        |> (fun (v, _) -> v))
+        |> (fun (_, v) -> v))
 
 let test_simple_program_with_variable_declaration () =
     let source = "var a = \"one\" + \"two\"; a + \"three\";" in
