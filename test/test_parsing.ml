@@ -251,7 +251,7 @@ let test_recovers_from_error () =
     | [Error "Expect '(' after 'if'."; Ok stmt] ->
         Alcotest.(check string)
             "Same string"
-            "(print after)"
+            "(print \"after\")"
             (Ast.stmt_to_sexp stmt)
     | results ->
         Alcotest.fail

@@ -50,7 +50,7 @@ type statement =
 (* TODO(dlsmith): Use the `show` function on the type *)
 let literal_to_string = function
     | Number num -> Float.to_string num
-    | String str -> str
+    | String str -> Printf.sprintf "\"%s\"" str
     | Variable name -> Printf.sprintf "(var %s)" name
     | True -> "true"
     | False -> "false"

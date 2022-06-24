@@ -1,3 +1,10 @@
+let test_strings_serialize_with_quotes () =
+    let ast = Ast.Literal ((String "hello, world"), LineNumber 0) in
+    Alcotest.(check string)
+        "Same string"
+        "\"hello, world\""
+        (Ast.expr_to_sexp ast)
+
 let test_to_sexp () =
     let expected = "(== (> 1.2 (- (group (+ 5. 2.)))) true)" in
     let ast =
@@ -32,6 +39,10 @@ let () =
     Alcotest.run "Parsing test suite"
         [
             ("Serialize to s-exp", [
+                Alcotest.test_case
+                    "Strings serialize with quotes"
+                    `Quick
+                    test_strings_serialize_with_quotes;
                 Alcotest.test_case
                     "Nested expression"
                     `Quick
