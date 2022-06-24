@@ -49,8 +49,6 @@ let rec parse_left_assoc_binary_ops ~subparser match_op tokens =
         in
         Ok (Binary (op, expr, right, LineNumber line), tokens)
 
-(* primary ->
-    NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ; *)
 let rec parse_primary tokens =
     let default_error = ("Expect expression.", tokens) in
     let* token = tokens |> Util.head |> Option.to_result ~none:default_error in
@@ -110,7 +108,6 @@ and parse_call tokens =
     let* expr, tokens = parse_primary tokens in
     complete_call expr tokens
 
-(* unary -> ( "!" | "-" ) unary | primary ; *)
 and parse_unary tokens =
     let op_line =
         Option.bind (Util.head tokens) (fun token ->
@@ -126,7 +123,6 @@ and parse_unary tokens =
         let* right, tokens = parse_unary (Util.tail tokens) in
         Ok (Unary (op, right, LineNumber line), tokens)
 
-(* factor -> unary ( ( "/" | "*" ) unary )* ; *)
 and parse_factor tokens =
     parse_left_assoc_binary_ops
         ~subparser:parse_unary
@@ -137,7 +133,6 @@ and parse_factor tokens =
         end
         tokens
 
-(* term -> factor ( ( "-" | "+" ) factor )* ; *)
 and parse_term tokens =
     parse_left_assoc_binary_ops
         ~subparser:parse_factor
@@ -148,7 +143,6 @@ and parse_term tokens =
         end
         tokens
 
-(* comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ; *)
 and parse_comparison tokens =
     parse_left_assoc_binary_ops
         ~subparser:parse_term
@@ -161,7 +155,6 @@ and parse_comparison tokens =
         end
         tokens
 
-(* equality -> comparison ( ( "!=" | "==" ) comparison )* ; *)
 and parse_equality tokens =
     parse_left_assoc_binary_ops
         ~subparser:parse_comparison
@@ -172,7 +165,6 @@ and parse_equality tokens =
         end
         tokens
 
-(* logic_or -> equality ( "and" equality )* ; *)
 and parse_logical_and tokens =
     parse_left_assoc_binary_ops
         ~subparser:parse_equality
@@ -182,7 +174,6 @@ and parse_logical_and tokens =
         end
         tokens
 
-(* logic_or -> logic_and ( "or" logic_and )* ; *)
 and parse_logical_or tokens =
     parse_left_assoc_binary_ops
         ~subparser:parse_logical_and
@@ -192,7 +183,6 @@ and parse_logical_or tokens =
         end
         tokens
 
-(* assignment -> IDENTIFIER "=" assignment | logic_or *)
 and parse_assignment tokens =
     let* expr, tokens = parse_logical_or tokens in
     match consume tokens (match_type Token.Equal) with
@@ -208,7 +198,6 @@ and parse_assignment tokens =
         end
     | None, tokens -> Ok (expr, tokens)
 
-(* expression -> assignment *)
 and parse_expression tokens =
     parse_assignment tokens
 
@@ -288,7 +277,6 @@ let rec parse_for_clauses tokens =
 
     Ok (init_opt, cond_opt, incr_opt, body, tokens)
 
-(* statement -> ( "print" expression | block | expression ) ";" ; *)
 and parse_statement tokens =
     match Util.head tokens with
     | Some { token_type=Token.For; line } ->
@@ -391,7 +379,6 @@ and parse_statement tokens =
         Ok (Block stmts, tokens)
     | _ -> parse_expression_statement tokens
 
-(* declaration -> ( "var" IDENTIFIER ( "=" expression )? ) | statement ";" ; *)
 and parse_declaration tokens =
     match peek tokens with
     | Some Token.Var -> parse_variable_declaration tokens
@@ -416,7 +403,6 @@ let rec synchronize tokens =
     (* Otherwise, continue *)
     | _ -> synchronize (Util.tail tokens)
 
-(* program -> declaration* EOF ; *)
 let rec parse_program tokens =
     match tokens with
     | [ Token.{ token_type=EOF; _ } ] -> []
