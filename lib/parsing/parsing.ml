@@ -2,8 +2,6 @@ open Ast
 
 let (let*) = Result.bind
 
-exception Parse_error of string
-
 type token_list = Token.token list
 
 let get_token_type token = Token.(token.token_type)

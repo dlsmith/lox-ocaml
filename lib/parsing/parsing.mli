@@ -1,5 +1,3 @@
-exception Parse_error of string
-
 type token_list = Token.token list
 
 val parse_expression :
