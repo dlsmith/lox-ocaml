@@ -79,6 +79,7 @@ let rec evaluate_expression env = function
         | LogicalNot -> Ok (value |> is_truthy |> not |> of_bool, env)
         end
     | Grouping (subexpr, _) -> evaluate_expression env subexpr
+    | Call (_callee, _args, _) -> raise (Failure "TODO")
     (* Logical and *)
     | Binary (And, subexpr1, subexpr2, LineNumber _) ->
         let* l, env = evaluate_expression env subexpr1 in

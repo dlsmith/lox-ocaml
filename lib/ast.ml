@@ -36,6 +36,7 @@ type expression =
     | Literal of literal * line_number
     | Unary of unary_op * expression * line_number
     | Binary of binary_op * expression * expression * line_number
+    | Call of expression * expression list * line_number
     | Grouping of expression * line_number
     | Assignment of string * expression * line_number
 
@@ -85,6 +86,11 @@ let rec expr_to_sexp = function
             op_str
             (expr_to_sexp subexpr1)
             (expr_to_sexp subexpr2)
+    | Call (callee, args, _) ->
+        Printf.sprintf
+            "(call %s (%s))"
+            (expr_to_sexp callee)
+            (args |> List.map expr_to_sexp |> String.concat " ")
     | Grouping (subexpr, _) ->
         Printf.sprintf "(group %s)" (expr_to_sexp subexpr)
     | Assignment (name, expr, _) ->

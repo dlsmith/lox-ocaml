@@ -1,3 +1,12 @@
+let clean_sexp s =
+    s
+    (* TODO(dlsmith): Clean this up or use s-exp comparison that ignores
+       whitespace. *)
+    |> Str.global_replace (Str.regexp "[ \t\n]+") " "
+    |> Str.global_replace (Str.regexp "( ") "("
+    |> Str.global_replace (Str.regexp " )") ")"
+    |> String.trim
+
 let check_parse tokens ~ok ~error =
     let partial_parse = Parsing.parse_expression tokens in
     match partial_parse with
@@ -100,6 +109,24 @@ let test_binary_expr_is_invalid_assignment_target () =
     ] in
     check_parse_error tokens "Invalid assignment target."
 
+let test_parse_nested_call () =
+    let open Token in
+    let expected = clean_sexp "
+        (call
+            (call
+                (call
+                    (var callee)
+                    ())
+                ((var one)))
+            ((var two) (var three)))" in
+    let tokens = create_tokens [
+        Identifier "callee";
+        LeftParen; RightParen;
+        LeftParen; Identifier "one"; RightParen;
+        LeftParen; Identifier "two"; Comma; Identifier "three"; RightParen;
+    ] in
+    check_parse_ok tokens expected
+
 let test_parse_incomplete_statement () =
     let open Token in
     let tokens = create_tokens [
@@ -166,15 +193,6 @@ let test_else_bound_to_nearest_if () =
             expected
             (Ast.stmt_to_sexp stmt)
     | _ -> Alcotest.fail "Expected parse ok"
-
-let clean_sexp s =
-    s
-    (* TODO(dlsmith): Clean this up or use s-exp comparison that ignores
-       whitespace. *)
-    |> Str.global_replace (Str.regexp "[ \t\n]+") " "
-    |> Str.global_replace (Str.regexp "( ") "("
-    |> Str.global_replace (Str.regexp " )") ")"
-    |> String.trim
 
 let test_for_loop_desugaring () =
     let open Token in
@@ -295,6 +313,10 @@ let () =
                     "Binary expr is invalid assignment target"
                     `Quick
                     test_binary_expr_is_invalid_assignment_target;
+                Alcotest.test_case
+                    "Nested call"
+                    `Quick
+                    test_parse_nested_call;
             ]);
             ("Parse statements", [
                 Alcotest.test_case

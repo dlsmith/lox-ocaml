@@ -72,6 +72,44 @@ let rec parse_primary tokens =
         end
     | _ -> Error default_error
 
+(* TODO(dlsmith): "Can't have more than 255 arguments." *)
+and parse_expression_list tokens =
+    let* expr, tokens = parse_expression tokens in
+    match peek tokens with
+    | Some Token.Comma ->
+        let* rest, tokens = parse_expression_list (Util.tail tokens) in
+        Ok (expr :: rest, tokens)
+    | _ -> Ok ([expr], tokens)
+
+(* Parse any number of call invocations (optionally with arguments).
+
+    callee()(one)(two, three)
+          -------------------
+
+    Returns the completed `Call` expression.
+*)
+and complete_call callee tokens =
+    match Util.head tokens with
+    | Some Token.{ token_type=LeftParen; line } ->
+        let tokens = Util.tail tokens in
+        let* args, tokens = match peek tokens with
+        | Some Token.RightParen -> Ok ([], tokens)
+        | _ -> parse_expression_list tokens
+        in
+        let* tokens =
+            consume_or_error
+                tokens
+                Token.RightParen
+                "Expect ')' after arguments."
+        in
+        let new_callee = Call (callee, args, LineNumber line) in
+        complete_call new_callee tokens
+    | _ -> Ok (callee, tokens)
+
+and parse_call tokens =
+    let* expr, tokens = parse_primary tokens in
+    complete_call expr tokens
+
 (* unary -> ( "!" | "-" ) unary | primary ; *)
 and parse_unary tokens =
     let op_line =
@@ -83,7 +121,7 @@ and parse_unary tokens =
         )
     in
     match op_line with
-    | None -> parse_primary tokens
+    | None -> parse_call tokens
     | Some (op, line) ->
         let* right, tokens = parse_unary (Util.tail tokens) in
         Ok (Unary (op, right, LineNumber line), tokens)
