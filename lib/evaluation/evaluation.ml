@@ -163,26 +163,26 @@ and evaluate_while env cond body =
         let* env, _ = evaluate_statement env body in
         evaluate_while env cond body
     else
-        Ok (env, None)
+        Ok (env, Nil)
 
 and evaluate_statement env = function
     | Expression expr ->
         let* env, value = evaluate_expression env expr in
-        Ok (env, Some value)
-    | If (cond_expr, then_branch, else_branch_option) ->
+        Ok (env, value)
+    | If (cond_expr, then_branch, else_branch_opt) ->
         let* env, cond = evaluate_expression env cond_expr in
         if is_truthy cond then
             evaluate_statement env then_branch
         else
-            begin match else_branch_option with
+            begin match else_branch_opt with
             | Some stmt -> evaluate_statement env stmt
-            | None -> Ok (env, None)
+            | None -> Ok (env, Nil)
             end
     | While (cond_expr, body) -> evaluate_while env cond_expr body
     | Print expr ->
         let* env, value = evaluate_expression env expr in
         value |> literal_to_string |> print_endline;
-        Ok (env, None)
+        Ok (env, Nil)
     | Block stmts ->
         let parent_env = env in
         let env = Env.make ~parent:(Some (ref parent_env)) in
@@ -190,21 +190,21 @@ and evaluate_statement env = function
            top-level of the program, not within a block. We may want to revisit
            this later.*)
         let* _ = evaluate_statements env stmts in
-        Ok (parent_env, None)
+        Ok (parent_env, Nil)
     | FunctionDeclaration (name, params, body) ->
         let fun_literal = Function (params, body) in
-        Ok (Env.define env name fun_literal, None)
+        Ok (Env.define env name fun_literal, Nil)
     | VariableDeclaration (name, init_expr) ->
         let* env, value = match init_expr with
         | Some expr -> evaluate_expression env expr
         | None -> Ok (env, Nil)
         in
-        Ok (Env.define env name value, None)
+        Ok (Env.define env name value, Nil)
 
 and evaluate_statements env = function
     (* In practice, this base case won't be executed unless this function is
        called explicitly with an empty list of statements *)
-    | [] -> Ok None
+    | [] -> Ok Nil
     | stmt :: stmts ->
         let* env, output = evaluate_statement env stmt in
         (* Return the output if this is the last statement. This enables our

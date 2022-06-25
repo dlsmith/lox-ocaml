@@ -26,9 +26,9 @@ val evaluate_expression :
 val evaluate_statement :
     Env.t ->
         Ast.statement ->
-            (Env.t * Ast.literal option, string) result
+            (Env.t * Ast.literal, string) result
 
 val evaluate_program :
     Env.t ->
         Ast.statement list ->
-            (Ast.literal option, string) result
+            (Ast.literal, string) result
