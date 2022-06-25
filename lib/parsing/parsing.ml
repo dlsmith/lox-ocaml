@@ -305,6 +305,14 @@ and parse_statement tokens =
         let* expr, tokens = parse_expression (Util.tail tokens) in
         let* tokens = expect Token.Semicolon "after value." tokens in
         Ok (Print expr, tokens)
+    | Some { token_type=Token.Return; _} ->
+        let tokens = Util.tail tokens in
+        let* return_value, tokens = match peek tokens with
+        | Some Token.Semicolon -> Ok (None, tokens)
+        | _ -> parse_expression tokens |> to_opt_parse
+        in
+        let* tokens = expect Token.Semicolon "after return value." tokens in
+        Ok (Return return_value, tokens)
     | Some { token_type=Token.If; _ } ->
         let tokens = Util.tail tokens in
         let* tokens = expect Token.LeftParen "after 'if'." tokens in

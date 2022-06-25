@@ -23,11 +23,6 @@ val evaluate_expression :
         Ast.expression ->
             (Env.t * Ast.literal, string) result
 
-val evaluate_statement :
-    Env.t ->
-        Ast.statement ->
-            (Env.t * Ast.literal, string) result
-
 val evaluate_program :
     Env.t ->
         Ast.statement list ->

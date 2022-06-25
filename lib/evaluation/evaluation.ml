@@ -1,6 +1,26 @@
 open Ast
 
-let (let*) = Result.bind
+(** An internal type extending `Result` to enable short-circuiting via
+    `return` statement. We'll use `let*` for `bind` within functions either for
+    `Result` or `EvaluationResult`, which accomplishes the short-circuiting. *)
+module EvaluationResult = struct
+    type 'a evaluation_result =
+        | Ok of 'a
+        | ReturnValue of Ast.literal
+        | Error of string
+
+    let bind r f =
+        match r with
+        | Ok v -> f v
+        | ReturnValue _ as v -> v
+        | Error _ as e -> e
+
+    let of_result = function
+        | Result.Ok v -> Ok v
+        | Result.Error v -> Error v
+end
+
+module ER = EvaluationResult
 
 module Env = struct
     module Table = Map.Make(String)
@@ -22,6 +42,7 @@ module Env = struct
         env
 
     let rec set env key value =
+        let (let*) = Result.bind in
         if contains env key
             then Ok (define env key value)
             else match env.parent with
@@ -63,14 +84,17 @@ let error message line =
 
 (* Modified version of `List.fold_left_map` to support `Result`. *)
 let fold_left_map f accu l =
-  let rec aux accu l_accu = function
-    | [] -> Ok (accu, List.rev l_accu)
-    | x :: l ->
-        let* accu, x = f accu x in
-        aux accu (x :: l_accu) l in
-  aux accu [] l
+    let (let*) = Result.bind in
+    let rec aux accu l_accu = function
+        | [] -> Ok (accu, List.rev l_accu)
+        | x :: l ->
+            let* accu, x = f accu x in
+            aux accu (x :: l_accu) l in
+    aux accu [] l
 
-let rec evaluate_expression env = function
+let rec evaluate_expression env expr =
+    let (let*) = Result.bind in
+    match expr with
     | Literal (Variable name, LineNumber line) ->
         begin match Env.get env name with
         | Ok value -> Ok (env, value)
@@ -102,13 +126,18 @@ let rec evaluate_expression env = function
                 error message line
         | _ -> error "Can only call functions and classes." line
         in
+        (* TODO(dlsmith): Do we really want to be accumulating the environment
+           here? I'll have to look back at the text, but my guess is they're
+           using a common top-level environment across arg expressions. *)
         let* env, args = fold_left_map evaluate_expression env arg_exprs in
         let call_env =
             List.fold_left2
                 Env.define (Env.make ~parent:(Some (ref env))) params args in
-        let* _ = evaluate_statements call_env body in
-        (* TODO(dlsmith): Support `return` *)
-        Ok (env, Nil)
+        begin match evaluate_statements call_env body with
+        | ER.Ok _ -> Ok (env, Nil)
+        | ER.ReturnValue v -> Ok (env, v)
+        | ER.Error m -> error m line
+        end
     (* Logical and *)
     | Binary (And, subexpr1, subexpr2, LineNumber _) ->
         let* env, l = evaluate_expression env subexpr1 in
@@ -158,61 +187,82 @@ let rec evaluate_expression env = function
         | Error message -> error message line
 
 and evaluate_while env cond body =
-    let* env, cond_value = evaluate_expression env cond in
+    let (let*) = ER.bind in
+    let* env, cond_value = evaluate_expression env cond |> ER.of_result in
     if is_truthy cond_value then
         let* env, _ = evaluate_statement env body in
         evaluate_while env cond body
     else
-        Ok (env, Nil)
+        ER.Ok (env, Nil)
 
-and evaluate_statement env = function
+and evaluate_statement env stmt =
+    let (let*) = ER.bind in
+    match stmt with
     | Expression expr ->
-        let* env, value = evaluate_expression env expr in
-        Ok (env, value)
+        let* env, value = evaluate_expression env expr |> ER.of_result in
+        ER.Ok (env, value)
     | If (cond_expr, then_branch, else_branch_opt) ->
-        let* env, cond = evaluate_expression env cond_expr in
+        let* env, cond = evaluate_expression env cond_expr |> ER.of_result in
         if is_truthy cond then
             evaluate_statement env then_branch
         else
             begin match else_branch_opt with
             | Some stmt -> evaluate_statement env stmt
-            | None -> Ok (env, Nil)
+            | None -> ER.Ok (env, Nil)
             end
     | While (cond_expr, body) -> evaluate_while env cond_expr body
     | Print expr ->
-        let* env, value = evaluate_expression env expr in
+        let* env, value = evaluate_expression env expr |> ER.of_result in
         value |> literal_to_string |> print_endline;
-        Ok (env, Nil)
+        ER.Ok (env, Nil)
+    | Return None ->
+        ER.ReturnValue Nil
+    | Return (Some expr) ->
+        let* _, value = evaluate_expression env expr |> ER.of_result in
+        ER.ReturnValue value
     | Block stmts ->
         let parent_env = env in
         let env = Env.make ~parent:(Some (ref parent_env)) in
         (* For a value to be returned from the program, it must be at the
            top-level of the program, not within a block. We may want to revisit
            this later.*)
-        let* _ = evaluate_statements env stmts in
-        Ok (parent_env, Nil)
+        begin match evaluate_statements env stmts with
+        | ER.Ok _ -> ER.Ok (parent_env, Nil)
+        | ER.ReturnValue _ as v -> v
+        | ER.Error _ as e -> e
+        end
     | FunctionDeclaration (name, params, body) ->
         let fun_literal = Function (params, body) in
-        Ok (Env.define env name fun_literal, Nil)
+        ER.Ok (Env.define env name fun_literal, Nil)
     | VariableDeclaration (name, init_expr) ->
         let* env, value = match init_expr with
-        | Some expr -> evaluate_expression env expr
-        | None -> Ok (env, Nil)
+        | Some expr -> evaluate_expression env expr |> ER.of_result
+        | None -> ER.Ok (env, Nil)
         in
-        Ok (Env.define env name value, Nil)
+        ER.Ok (Env.define env name value, Nil)
 
 and evaluate_statements env = function
     (* In practice, this base case won't be executed unless this function is
        called explicitly with an empty list of statements *)
-    | [] -> Ok Nil
+    | [] -> ER.Ok Nil
     | stmt :: stmts ->
-        let* env, output = evaluate_statement env stmt in
-        (* Return the output if this is the last statement. This enables our
-           programs to produce values rather than purely executing for side
-           effects.
+        match evaluate_statement env stmt with
+        | ER.Ok (env, output) ->
+            begin match stmts with
+            (* Return the output if this is the last statement. This enables our
+               programs to produce values rather than purely executing for side
+               effects.
 
-           This is an intentional diversion from the book, the primary
-           motivation being to simplify testing. May revisit later. *)
-        match stmts with [] -> Ok output | _ -> evaluate_statements env stmts
+               This is an intentional diversion from the book, the primary
+               motivation being to simplify testing. May revisit later. *)
+            | [] -> ER.Ok output
+            | _ -> evaluate_statements env stmts
+            end
+        | ER.ReturnValue _ as v -> v
+        | ER.Error _ as e -> e
 
-let evaluate_program = evaluate_statements
+let evaluate_program env stmts =
+    match evaluate_statements env stmts with
+    | ER.Ok v -> Ok v
+    | ER.ReturnValue v -> Ok v
+    | ER.Error m -> Error m

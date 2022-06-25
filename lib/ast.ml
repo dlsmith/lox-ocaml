@@ -48,6 +48,7 @@ and statement =
     | Expression of expression
     | If of expression * statement * (statement option)
     | Print of expression
+    | Return of expression option
     | While of expression * statement
     | Block of statement list
     | FunctionDeclaration of string * string list * statement list
@@ -128,6 +129,9 @@ and stmt_to_sexp = function
             (stmt_to_sexp body)
     | Print expr ->
         Printf.sprintf "(print %s)" (expr_to_sexp expr)
+    | Return (Some expr) ->
+        Printf.sprintf "(return %s)" (expr_to_sexp expr)
+    | Return None -> "(return nil)"
     | FunctionDeclaration (name, params, body) ->
         Printf.sprintf
             "(fun-decl %s (%s) (%s))"
