@@ -122,7 +122,7 @@ let rec evaluate_expression env expr =
                 Ok (params, body)
             else
                 let message = Printf.sprintf
-                    "Expected %d arguments but got %d" num_args num_params in
+                    "Expected %d arguments but got %d" num_params num_args in
                 error message line
         | _ -> error "Can only call functions and classes." line
         in

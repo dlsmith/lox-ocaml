@@ -124,6 +124,91 @@ let test_logical_or_short_circuits () =
         |> Util.get_ok
         |> (fun (_, v) -> v))
 
+let test_function_arity_mismatch () =
+    let source = "fun f (a) { 2 * a; } f();" in
+    Alcotest.(check string)
+        "Produces arity error"
+        "[line 0] Error: Expected 1 arguments but got 0"
+        (source |> Interpreter.run |> Result.get_error)
+
+let test_function_returns_nil_by_default () =
+    let source = "fun f (a, b) { a + b; } f(1, 2);" in
+    Alcotest.(check literal_testable)
+        "Produces nil"
+        Ast.Nil
+        (source |> Interpreter.run |> Util.get_ok)
+
+let test_does_not_execute_statements_after_return () =
+    let source = "
+        var global = \"unmodified\";
+        fun f () {
+            var a = \"inside\";
+
+            // Exercises `return` propagation.
+            if (1. + 2. > 0.)
+                return a;
+
+            global = \"modified\";
+            return a;
+        }
+        f() + \";\" + global;" in
+    Alcotest.(check literal_testable)
+        "Same value"
+        (Ast.String "inside;unmodified")
+        (source |> Interpreter.run |> Util.get_ok)
+
+let test_return_breaks_from_loop () =
+    let source = "
+        fun f () {
+            for (var i = 0; i < 10; i = i + 1) {
+                if (i > 5)
+                    return i;
+            }
+        }
+        f();" in
+    Alcotest.(check literal_testable)
+        "Same value"
+        (Ast.Number 6.)
+        (source |> Interpreter.run |> Util.get_ok)
+
+let test_can_recurse () =
+    let source = "
+        fun f (s) {
+            if (s == \"\") {
+                return f(\"called\");
+            } else {
+                return s;
+            }
+        }
+        f(\"\");" in
+    Alcotest.(check literal_testable)
+        "Same value"
+        (Ast.String "called")
+        (source |> Interpreter.run |> Util.get_ok)
+
+(* TODO(dlsmith): Support closures.
+
+let test_closure () =
+    let source = "
+        fun makeCounter() {
+            var i = 0;
+            fun count() {
+                i = i + 1;
+                return i;
+            }
+
+            return count;
+        }
+
+        var counter = makeCounter();
+        counter();
+        counter();" in
+    Alcotest.(check literal_testable)
+        "Same value"
+        (Ast.Number 2.)
+        (source |> Interpreter.run |> Util.get_ok)
+*)
+
 let test_simple_program_with_variable_declaration () =
     let source = "var a = \"one\" + \"two\"; a + \"three\";" in
     Alcotest.(check literal_testable)
@@ -187,6 +272,17 @@ let test_simple_program_with_while_loop () =
         (Ok (Ast.Number 5.))
         (source |> Interpreter.run)
 
+let test_for_iter_var_not_accessible_outside_loop () =
+    let source = "
+        for (var i = 0; i < 10; i = i + 1) {
+            i;
+        }
+        i;" in
+    Alcotest.(check (result literal_testable string))
+        "Expected error"
+        (Error "[line 4] Error: Undefined variable 'i'.")
+        (source |> Interpreter.run)
+
 let () =
     Alcotest.run "Evaluation test suite"
         [
@@ -238,6 +334,38 @@ let () =
                     `Quick
                     test_logical_or_short_circuits;
             ]);
+            ("Functions", [
+                Alcotest.test_case
+                    "Errors for arity mismatch"
+                    `Quick
+                    test_function_arity_mismatch;
+                Alcotest.test_case
+                    "Returns nil by default"
+                    `Quick
+                    test_function_returns_nil_by_default;
+                Alcotest.test_case
+                    "Does not execute statements after return"
+                    `Quick
+                    test_does_not_execute_statements_after_return;
+                Alcotest.test_case
+                    "Return breaks from loop"
+                    `Quick
+                    test_return_breaks_from_loop;
+                Alcotest.test_case
+                    "Can recurse"
+                    `Quick
+                    test_can_recurse;
+
+                (* TODO(dlsmith): Support closures.
+
+                Alcotest.test_case
+                    "Closure"
+                    `Quick
+                    test_closure;
+                *)
+
+                (* TODO(dlsmith): Can't return outside of call. *)
+            ]);
             ("Program", [
                 Alcotest.test_case
                     "Simple program with variable declaration"
@@ -275,5 +403,9 @@ let () =
                     "Simple program with while loop"
                     `Quick
                     test_simple_program_with_while_loop;
+                Alcotest.test_case
+                    "For iter var is not accessible outside loop"
+                    `Quick
+                    test_for_iter_var_not_accessible_outside_loop;
             ]);
         ]
