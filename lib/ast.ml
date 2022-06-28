@@ -24,7 +24,7 @@ type literal =
     | Number of float
     | String of string
     | Variable of string
-    | Function of string list * statement list
+    | Function of literal Env.t * string option * string list * statement list
     | True
     | False
     | Nil
@@ -60,11 +60,8 @@ let rec literal_to_string = function
     | Number num -> Float.to_string num
     | String str -> Printf.sprintf "\"%s\"" str
     | Variable name -> Printf.sprintf "(var %s)" name
-    | Function (params, body) ->
-        Printf.sprintf
-            "(fun (%s) (%s))"
-            (String.concat " " params)
-            (body |> List.map stmt_to_sexp |> String.concat " ")
+    | Function (_, Some name, _, _) -> Printf.sprintf "<fun %s>" name
+    | Function (_, None, _, _) -> "<fun>"
     | True -> "true"
     | False -> "false"
     | Nil -> "nil"

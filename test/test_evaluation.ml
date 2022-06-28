@@ -1,5 +1,3 @@
-module Env = Evaluation.Env
-
 let literal_testable =
     Alcotest.testable Ast.pp_literal Ast.equal_literal
 
@@ -186,8 +184,6 @@ let test_can_recurse () =
         (Ast.String "called")
         (source |> Interpreter.run |> Util.get_ok)
 
-(* TODO(dlsmith): Support closures.
-
 let test_closure () =
     let source = "
         fun makeCounter() {
@@ -196,6 +192,9 @@ let test_closure () =
                 i = i + 1;
                 return i;
             }
+
+            // The closure should capture the value of `i` at declaration.
+            i = 1000;
 
             return count;
         }
@@ -207,7 +206,6 @@ let test_closure () =
         "Same value"
         (Ast.Number 2.)
         (source |> Interpreter.run |> Util.get_ok)
-*)
 
 let test_simple_program_with_variable_declaration () =
     let source = "var a = \"one\" + \"two\"; a + \"three\";" in
@@ -355,14 +353,10 @@ let () =
                     "Can recurse"
                     `Quick
                     test_can_recurse;
-
-                (* TODO(dlsmith): Support closures.
-
                 Alcotest.test_case
                     "Closure"
                     `Quick
                     test_closure;
-                *)
 
                 (* TODO(dlsmith): Can't return outside of call. *)
             ]);

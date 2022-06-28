@@ -22,43 +22,6 @@ end
 
 module ER = EvaluationResult
 
-module Env = struct
-    module Table = Map.Make(String)
-
-    type t = {
-        (* TODO(dlsmith): Can we do this without mutability (i.e., refs)? *)
-        values: literal Table.t ref;
-        parent: t ref option
-    }
-
-    let make ~parent = {values=ref Table.empty; parent=parent}
-
-    let contains t key = Table.mem key !(t.values)
-
-    let get_parent env = env.parent
-
-    let define env key value =
-        env.values := Table.add key value !(env.values);
-        env
-
-    let rec set env key value =
-        let (let*) = Result.bind in
-        if contains env key
-            then Ok (define env key value)
-            else match env.parent with
-            | Some parent_ref ->
-                let* updated_parent = set !parent_ref key value in
-                parent_ref := updated_parent;
-                Ok env
-            | None -> Error ("Undefined variable '" ^ key ^ "'.")
-
-    let rec get env key =
-        match Table.find_opt key !(env.values), env.parent with
-        | Some v, _ -> Ok v
-        | None, Some env_ref -> get !env_ref key
-        | None, None -> Error ("Undefined variable '" ^ key ^ "'.")
-end
-
 let is_truthy (value: literal) : bool =
     match value with
     | Nil -> false
@@ -92,6 +55,13 @@ let fold_left_map f accu l =
             aux accu (x :: l_accu) l in
     aux accu [] l
 
+(* Close over the environment variables and return an updated environment
+    with the closure included. *)
+let set_with_closure env name params body =
+    let fun_env = Env.shallow_copy env in
+    let fun_literal = Function (fun_env, Some name, params, body) in
+    Env.define env name fun_literal
+
 let rec evaluate_expression env expr =
     let (let*) = Result.bind in
     match expr with
@@ -114,25 +84,40 @@ let rec evaluate_expression env expr =
     | Grouping (subexpr, _) -> evaluate_expression env subexpr
     | Call (callee_expr, arg_exprs, LineNumber line) ->
         let* env, callee = evaluate_expression env callee_expr in
-        let* params, body = match callee with
-        | Function (params, body) ->
+        let* fun_env, name_opt, params, body = match callee with
+        | Function (env, name_opt, params, body) ->
             let num_params = List.length params in
             let num_args = List.length arg_exprs in
             if num_params == num_args then
-                Ok (params, body)
+                Ok (env, name_opt, params, body)
             else
                 let message = Printf.sprintf
                     "Expected %d arguments but got %d" num_params num_args in
                 error message line
         | _ -> error "Can only call functions and classes." line
         in
-        (* TODO(dlsmith): Do we really want to be accumulating the environment
-           here? I'll have to look back at the text, but my guess is they're
-           using a common top-level environment across arg expressions. *)
+
+        (* Evaluate arg expressions with the environment at the call site. *)
         let* env, args = fold_left_map evaluate_expression env arg_exprs in
+
+        (* The environment for the function body will start with the
+           environment at the function declaration site (enabling closures)
+           and is augmented by the bound parameters. *)
         let call_env =
             List.fold_left2
-                Env.define (Env.make ~parent:(Some (ref env))) params args in
+                Env.define
+                (Env.make ~parent:(Some (ref fun_env)))
+                params
+                args
+        in
+
+        (* If the function is named, add it to the call environment to enable
+           recursion. *)
+        let call_env = match name_opt with
+        | Some name -> set_with_closure call_env name params body
+        | None -> call_env
+        in
+
         begin match evaluate_statements call_env body with
         | ER.Ok _ -> Ok (env, Nil)
         | ER.ReturnValue v -> Ok (env, v)
@@ -232,8 +217,8 @@ and evaluate_statement env stmt =
         | ER.Error _ as e -> e
         end
     | FunctionDeclaration (name, params, body) ->
-        let fun_literal = Function (params, body) in
-        ER.Ok (Env.define env name fun_literal, Nil)
+        let env = set_with_closure env name params body in
+        ER.Ok (env, Nil)
     | VariableDeclaration (name, init_expr) ->
         let* env, value = match init_expr with
         | Some expr -> evaluate_expression env expr |> ER.of_result

@@ -16,5 +16,12 @@
 (library
   (name ast)
   (modules ast)
+  (libraries env)
   (preprocess
     (pps ppx_deriving.show ppx_deriving.eq)))
+
+(library
+  (name env)
+  (modules env)
+  (preprocess
+   (pps ppx_deriving.show ppx_deriving.eq)))
