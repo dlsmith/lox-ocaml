@@ -1,6 +1,6 @@
 # lox-ocaml
 
-An implementation of (something close to) the Lox language from
+An implementation of (something close to) the jlox tree-walk interpreter from
 [Crafting Interpreters](https://www.craftinginterpreters.com/). I'm also using
 this as an opportunity to learn more about statically-typed functional
 programming patterns and the OCaml language. Thus, the implementation diverges
@@ -10,7 +10,6 @@ style or be highly idiomatic.
 
 ### TODO
 
-- [ ] Add `clock` native function to support profiling
 - [ ] REPL evaluates each entry in isolation. Use a top-level `Env` to enable
   state across evaluations.
 - [ ] We skipped the full resolver implementation in favor of fixing the
