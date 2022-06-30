@@ -129,6 +129,17 @@ let test_logical_or_short_circuits () =
         |> Util.get_ok
         |> (fun (_, v) -> v))
 
+let test_clock_increases () =
+    let source = "
+        var start = clock();
+        // Do some work to make sure we have enough time to detect.
+        for (var i = 0; i < 1000; i = i + 1) i + i;
+        clock() - start > 0;" in
+    Alcotest.(check literal_testable)
+        "Is true"
+        Ast.True
+        (source |> Interpreter.run |> Util.get_ok)
+
 let test_function_arity_mismatch () =
     let source = "fun f (a) { 2 * a; } f();" in
     Alcotest.(check string)
@@ -345,6 +356,12 @@ let () =
                     "Logical or short-circuits"
                     `Quick
                     test_logical_or_short_circuits;
+            ]);
+            ("Native functions", [
+                Alcotest.test_case
+                    "Clock result increases"
+                    `Quick
+                    test_clock_increases;
             ]);
             ("Functions", [
                 Alcotest.test_case

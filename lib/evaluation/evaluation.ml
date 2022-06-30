@@ -82,6 +82,10 @@ let rec evaluate_expression env expr =
         | LogicalNot -> Ok (env, value |> is_truthy |> not |> of_bool)
         end
     | Grouping (subexpr, _) -> evaluate_expression env subexpr
+    (* A very hacky native function implementation.
+       TODO(dlsmith): Refactor as we have more. *)
+    | Call (Literal (Variable "clock", _), [], _) ->
+        Ok (env, Number (Unix.gettimeofday ()))
     | Call (callee_expr, arg_exprs, LineNumber line) ->
         let* env, callee = evaluate_expression env callee_expr in
         let* fun_env, name_opt, params, body = match callee with
