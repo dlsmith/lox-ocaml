@@ -1,3 +1,10 @@
+(* TODO(dlsmith): Should these tests live under `test_interpreter`?
+   Including scanning and parsing for convenience seemed ok because of the
+   types: there was no way to produce statements to evaluate without parsing
+   and no way to produce tokens to parse without scanning. But now that we're
+   implicitly including analysis passes it seems less clean--more likely to
+   lead to confusion or bugs. *)
+
 let literal_testable =
     Alcotest.testable Ast.pp_literal Ast.equal_literal
 
@@ -207,6 +214,13 @@ let test_closure () =
         (Ast.Number 2.)
         (source |> Interpreter.run |> Util.get_ok)
 
+let test_return_prohibited_outside_of_function () =
+    let source = "return \"at top level\";" in
+    Alcotest.(check (result literal_testable string))
+        "Has error"
+        (Error "Can't return from top-level code.")
+        (source |> Interpreter.run)
+
 let test_simple_program_with_variable_declaration () =
     let source = "var a = \"one\" + \"two\"; a + \"three\";" in
     Alcotest.(check literal_testable)
@@ -357,8 +371,10 @@ let () =
                     "Closure"
                     `Quick
                     test_closure;
-
-                (* TODO(dlsmith): Can't return outside of call. *)
+                Alcotest.test_case
+                    "Return prohibited outside of function"
+                    `Quick
+                    test_return_prohibited_outside_of_function;
             ]);
             ("Program", [
                 Alcotest.test_case
