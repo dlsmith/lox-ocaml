@@ -1,3 +1,5 @@
+type env_of_literals = Evaluation.env_of_literals
+
 let scan_or_error source =
     try
         source
@@ -9,7 +11,7 @@ let scan_or_error source =
         |> Result.ok
     with Invalid_argument message -> Error message
 
-let run source =
+let run env source =
     let (let*) = Result.bind in
     let* tokens = scan_or_error source in
     try
@@ -19,7 +21,7 @@ let run source =
         |> List.map Util.get_ok
         |> Analysis.analyze_return
         |> List.map Util.get_ok
-        |> Evaluation.(evaluate_program (Env.make ~parent:None))
+        |> Evaluation.(evaluate_program env)
     with Invalid_argument message -> Error message
 
 let report line where message =

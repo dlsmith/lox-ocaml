@@ -1,9 +1,11 @@
+type env_of_literals = Ast.literal Env.t
+
 val evaluate_expression :
-    Ast.literal Env.t ->
+    env_of_literals ->
         Ast.expression ->
-            (Ast.literal Env.t * Ast.literal, string) result
+            (env_of_literals * Ast.literal, string) result
 
 val evaluate_program :
-    Ast.literal Env.t ->
+    env_of_literals ->
         Ast.statement list ->
-            (Ast.literal, string) result
+            (env_of_literals * Ast.literal, string) result

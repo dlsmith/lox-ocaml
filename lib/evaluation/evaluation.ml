@@ -1,12 +1,14 @@
 open Ast
 
+type env_of_literals = Ast.literal Env.t
+
 (** An internal type extending `Result` to enable short-circuiting via
     `return` statement. We'll use `let*` for `bind` within functions either for
     `Result` or `EvaluationResult`, which accomplishes the short-circuiting. *)
 module EvaluationResult = struct
-    type 'a evaluation_result =
+    type 'a t =
         | Ok of 'a
-        | ReturnValue of Ast.literal
+        | ReturnValue of 'a
         | Error of string
 
     let bind r f =
@@ -122,9 +124,11 @@ let rec evaluate_expression env expr =
         | None -> call_env
         in
 
+        (* The only thing we want to preserve from the call is an explicit
+           return value. Otherwise, we resume with parent environment. *)
         begin match evaluate_statements call_env body with
         | ER.Ok _ -> Ok (env, Nil)
-        | ER.ReturnValue v -> Ok (env, v)
+        | ER.ReturnValue (_, v) -> Ok (env, v)
         | ER.Error m -> error m line
         end
     (* Logical and *)
@@ -205,10 +209,10 @@ and evaluate_statement env stmt =
         value |> literal_to_string |> print_endline;
         ER.Ok (env, Nil)
     | Return None ->
-        ER.ReturnValue Nil
+        ER.ReturnValue (env, Nil)
     | Return (Some expr) ->
         let* _, value = evaluate_expression env expr |> ER.of_result in
-        ER.ReturnValue value
+        ER.ReturnValue (env, value)
     | Block stmts ->
         let parent_env = env in
         let env = Env.make ~parent:(Some (ref parent_env)) in
@@ -233,7 +237,7 @@ and evaluate_statement env stmt =
 and evaluate_statements env = function
     (* In practice, this base case won't be executed unless this function is
        called explicitly with an empty list of statements *)
-    | [] -> ER.Ok Nil
+    | [] -> ER.Ok (env, Nil)
     | stmt :: stmts ->
         match evaluate_statement env stmt with
         | ER.Ok (env, output) ->
@@ -244,7 +248,7 @@ and evaluate_statements env = function
 
                This is an intentional diversion from the book, the primary
                motivation being to simplify testing. May revisit later. *)
-            | [] -> ER.Ok output
+            | [] -> ER.Ok (env, output)
             | _ -> evaluate_statements env stmts
             end
         | ER.ReturnValue _ as v -> v
@@ -252,6 +256,6 @@ and evaluate_statements env = function
 
 let evaluate_program env stmts =
     match evaluate_statements env stmts with
-    | ER.Ok v -> Ok v
-    | ER.ReturnValue v -> Ok v
+    | ER.Ok (env, v) -> Ok (env, v)
+    | ER.ReturnValue (env, v) -> Ok (env, v)
     | ER.Error m -> Error m

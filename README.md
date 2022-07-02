@@ -10,8 +10,7 @@ style or be highly idiomatic.
 
 ### TODO
 
-- [ ] REPL evaluates each entry in isolation. Use a top-level `Env` to enable
-  state across evaluations.
+- [ ] Surface all scanner/parser errors rather than only the first
 - [ ] We skipped the full resolver implementation in favor of fixing the
   closure issue by copying the environment at the time function declarations
   are evaluated. The one feature we lose (as of the beginning of the classes

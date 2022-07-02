@@ -129,6 +129,12 @@ let test_logical_or_short_circuits () =
         |> Util.get_ok
         |> (fun (_, v) -> v))
 
+let run_interpreter source =
+    let env = Env.make ~parent:None in
+    match Interpreter.run env source with
+    | Ok (_env, value) -> Ok value
+    | Error _ as e -> e
+
 let test_clock_increases () =
     let source = "
         var start = clock();
@@ -138,21 +144,21 @@ let test_clock_increases () =
     Alcotest.(check literal_testable)
         "Is true"
         Ast.True
-        (source |> Interpreter.run |> Util.get_ok)
+        (source |> run_interpreter |> Util.get_ok)
 
 let test_function_arity_mismatch () =
     let source = "fun f (a) { 2 * a; } f();" in
     Alcotest.(check string)
         "Produces arity error"
         "[line 0] Error: Expected 1 arguments but got 0"
-        (source |> Interpreter.run |> Result.get_error)
+        (source |> run_interpreter |> Result.get_error)
 
 let test_function_returns_nil_by_default () =
     let source = "fun f (a, b) { a + b; } f(1, 2);" in
     Alcotest.(check literal_testable)
         "Produces nil"
         Ast.Nil
-        (source |> Interpreter.run |> Util.get_ok)
+        (source |> run_interpreter |> Util.get_ok)
 
 let test_does_not_execute_statements_after_return () =
     let source = "
@@ -171,7 +177,7 @@ let test_does_not_execute_statements_after_return () =
     Alcotest.(check literal_testable)
         "Same value"
         (Ast.String "inside;unmodified")
-        (source |> Interpreter.run |> Util.get_ok)
+        (source |> run_interpreter |> Util.get_ok)
 
 let test_return_breaks_from_loop () =
     let source = "
@@ -185,7 +191,7 @@ let test_return_breaks_from_loop () =
     Alcotest.(check literal_testable)
         "Same value"
         (Ast.Number 6.)
-        (source |> Interpreter.run |> Util.get_ok)
+        (source |> run_interpreter |> Util.get_ok)
 
 let test_can_recurse () =
     let source = "
@@ -200,7 +206,7 @@ let test_can_recurse () =
     Alcotest.(check literal_testable)
         "Same value"
         (Ast.String "called")
-        (source |> Interpreter.run |> Util.get_ok)
+        (source |> run_interpreter |> Util.get_ok)
 
 let test_closure () =
     let source = "
@@ -223,77 +229,77 @@ let test_closure () =
     Alcotest.(check literal_testable)
         "Same value"
         (Ast.Number 2.)
-        (source |> Interpreter.run |> Util.get_ok)
+        (source |> run_interpreter |> Util.get_ok)
 
 let test_return_prohibited_outside_of_function () =
     let source = "return \"at top level\";" in
     Alcotest.(check (result literal_testable string))
         "Has error"
         (Error "Can't return from top-level code.")
-        (source |> Interpreter.run)
+        (source |> run_interpreter)
 
 let test_simple_program_with_variable_declaration () =
     let source = "var a = \"one\" + \"two\"; a + \"three\";" in
     Alcotest.(check literal_testable)
         "Same value"
         (Ast.String "onetwothree")
-        (source |> Interpreter.run |> Util.get_ok)
+        (source |> run_interpreter |> Util.get_ok)
 
 let test_simple_program_with_variable_assignment () =
     let source = "var a; a = 1.; a > 0.;" in
     Alcotest.(check literal_testable)
         "Same value"
         (Ast.True)
-        (source |> Interpreter.run |> Util.get_ok)
+        (source |> run_interpreter |> Util.get_ok)
 
 let test_outer_scope_is_preserved_during_shadowing () =
     let source = "var a = \"outer\"; { var a = \"inner\"; } a;" in
     Alcotest.(check literal_testable)
         "Same value"
         (Ast.String "outer")
-        (source |> Interpreter.run |> Util.get_ok)
+        (source |> run_interpreter |> Util.get_ok)
 
 let test_outer_scope_is_modified_by_assignment () =
     let source = "var a = \"outer\"; { var b = 1 + 2; a = \"inner\"; } a;" in
     Alcotest.(check literal_testable)
         "Same value"
         (Ast.String "inner")
-        (source |> Interpreter.run |> Util.get_ok)
+        (source |> run_interpreter |> Util.get_ok)
 
 let test_inner_scope_decl_not_available_in_outer () =
     let source = "{ var a = \"inner\"; } a;" in
     Alcotest.(check string)
         "Same value"
         "[line 0] Error: Undefined variable 'a'."
-        (source |> Interpreter.run |> Result.get_error)
+        (source |> run_interpreter |> Result.get_error)
 
 let test_final_value_not_returned_if_within_a_block () =
     let source = "{ 1 + 2; }" in
     Alcotest.(check (result literal_testable string))
         "Nil result"
         (Ok Nil)
-        (source |> Interpreter.run)
+        (source |> run_interpreter)
 
 let test_multiple_child_scopes () =
     let source = "var a = 1.; { a = a + 1.; } { a = 2 * a; } a >= 4.;" in
     Alcotest.(check (result literal_testable string))
         "Expected value"
         (Ok Ast.True)
-        (source |> Interpreter.run)
+        (source |> run_interpreter)
 
 let test_else_not_executed_for_true_condition () =
     let source = "var a = 3.; if (true) a = a * 5.; else a = a + 1.; a;" in
     Alcotest.(check (result literal_testable string))
         "Expected value"
         (Ok (Ast.Number 15.))
-        (source |> Interpreter.run)
+        (source |> run_interpreter)
 
 let test_simple_program_with_while_loop () =
     let source = "var a = 0.; while (a < 5.) a = a + 1.; a;" in
     Alcotest.(check (result literal_testable string))
         "Expected value"
         (Ok (Ast.Number 5.))
-        (source |> Interpreter.run)
+        (source |> run_interpreter)
 
 let test_for_iter_var_not_accessible_outside_loop () =
     let source = "
@@ -304,7 +310,7 @@ let test_for_iter_var_not_accessible_outside_loop () =
     Alcotest.(check (result literal_testable string))
         "Expected error"
         (Error "[line 4] Error: Undefined variable 'i'.")
-        (source |> Interpreter.run)
+        (source |> run_interpreter)
 
 let () =
     Alcotest.run "Evaluation test suite"
