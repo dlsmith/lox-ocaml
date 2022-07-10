@@ -49,8 +49,7 @@ let evaluate_expr source =
     let* expr, rest_tokens =
         Parsing.parse_expression tokens
         (* TODO(dlsmith): Surface all errors. *)
-        |> Result.map_error (fun (message, _) -> message)
-    in
+        |> Result.map_error (fun (message, _) -> message) in
     match rest_tokens with
     | [ { token_type=Token.EOF; _} ] ->
         Evaluation.(evaluate_expression (Env.make ~parent:None) expr)

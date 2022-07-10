@@ -29,8 +29,7 @@ let expect token_type context tokens =
             Printf.sprintf
                 "Expect '%s' %s"
                 (Token.to_string token_type)
-                context
-        in
+                context in
         Error (message, tokens)
 
 let rec parse_item_list item_parser tokens =
@@ -55,8 +54,7 @@ let rec parse_left_assoc_binary_ops ~subparser match_op tokens =
             |> get_token_type
             |> match_op
             |> Option.map (fun op -> op, Token.(token.line))
-        )
-    in
+        ) in
     match op_line with
     | None -> Ok (expr, tokens)
     | Some (op, line) ->
@@ -64,8 +62,7 @@ let rec parse_left_assoc_binary_ops ~subparser match_op tokens =
             parse_left_assoc_binary_ops
                 ~subparser
                 match_op
-                (Util.tail tokens)
-        in
+                (Util.tail tokens) in
         Ok (Binary (op, expr, right, LineNumber line), tokens)
 
 let rec parse_primary tokens =
@@ -100,11 +97,11 @@ and complete_call callee tokens =
     match Util.head tokens with
     | Some Token.{ token_type=LeftParen; line } ->
         let tokens = Util.tail tokens in
-        let* args, tokens = match peek tokens with
-        | Some Token.RightParen -> Ok ([], tokens)
-        (* TODO(dlsmith): "Can't have more than 255 arguments." *)
-        | _ -> parse_item_list parse_expression tokens
-        in
+        let* args, tokens =
+            match peek tokens with
+            | Some Token.RightParen -> Ok ([], tokens)
+            (* TODO(dlsmith): "Can't have more than 255 arguments." *)
+            | _ -> parse_item_list parse_expression tokens in
         let* tokens = expect Token.RightParen "after arguments." tokens in
         let new_callee = Call (callee, args, LineNumber line) in
         complete_call new_callee tokens
@@ -121,8 +118,7 @@ and parse_unary tokens =
             | Token.Bang -> Some (LogicalNot, token.line)
             | Token.Minus -> Some (Negate, token.line)
             | _ -> None
-        )
-    in
+        ) in
     match op_line with
     | None -> parse_call tokens
     | Some (op, line) ->
@@ -224,8 +220,7 @@ let parse_variable_declaration tokens =
         let* init_expr, tokens =
             match consume tokens (match_type Token.Equal) with
             | Some _, tokens -> tokens |> parse_expression |> to_opt_parse
-            | None, tokens -> Ok (None, tokens)
-        in
+            | None, tokens -> Ok (None, tokens) in
         (* Make sure we finish with a semicolon before returning *)
         let* tokens =
             expect Token.Semicolon "after variable declaration." tokens in
@@ -235,27 +230,29 @@ let parse_variable_declaration tokens =
 let rec parse_for_clauses tokens =
     let* tokens = expect Token.LeftParen "after 'for'." tokens in
 
-    let* init_opt, tokens = match peek tokens with
-    | Some Token.Semicolon -> Ok (None, Util.tail tokens)
-    | Some Token.Var -> tokens |> parse_variable_declaration |> to_opt_parse
-    | _ -> tokens |> parse_expression_statement |> to_opt_parse
-    in
+    let* init_opt, tokens =
+        match peek tokens with
+        | Some Token.Semicolon -> Ok (None, Util.tail tokens)
+        | Some Token.Var -> tokens |> parse_variable_declaration |> to_opt_parse
+        | _ -> tokens |> parse_expression_statement |> to_opt_parse in
 
-    let* cond_opt, tokens = match peek tokens with
-    | Some Token.Semicolon -> Ok (None, Util.tail tokens)
-    | _ ->
-        let* expr, tokens = parse_expression tokens in
-        let* tokens = expect Token.Semicolon "after loop condition." tokens in
-        Ok (Some expr, tokens)
-    in
+    let* cond_opt, tokens =
+        match peek tokens with
+        | Some Token.Semicolon -> Ok (None, Util.tail tokens)
+        | _ ->
+            let* expr, tokens = parse_expression tokens in
+            let* tokens =
+                expect Token.Semicolon "after loop condition." tokens in
+            Ok (Some expr, tokens) in
 
-    let* incr_opt, tokens = match peek tokens with
-    | Some Token.RightParen -> Ok (None, Util.tail tokens)
-    | _ ->
-        let* expr, tokens = parse_expression tokens in
-        let* tokens = expect Token.RightParen "after for clauses." tokens in
-        Ok (Some expr, tokens)
-    in
+    let* incr_opt, tokens =
+        match peek tokens with
+        | Some Token.RightParen -> Ok (None, Util.tail tokens)
+        | _ ->
+            let* expr, tokens = parse_expression tokens in
+            let* tokens =
+                expect Token.RightParen "after for clauses." tokens in
+            Ok (Some expr, tokens) in
 
     let* body, tokens = parse_statement tokens in
 
@@ -275,30 +272,29 @@ and parse_statement tokens =
     | Some { token_type=Token.For; line } ->
         (* Parse loop clauses and body, then desugar to `while`. *)
         let* init_opt, cond_opt, incr_opt, body, tokens =
-            parse_for_clauses (Util.tail tokens)
-        in
+            parse_for_clauses (Util.tail tokens) in
 
         (* Append increment expressiont to body. *)
-        let body = match incr_opt with
-        | Some incr -> Block [body; Expression incr]
-        | None -> body
-        in
+        let body =
+            match incr_opt with
+            | Some incr -> Block [body; Expression incr]
+            | None -> body in
 
         (* Build `while` loop with condition, using `true` by default. *)
-        let cond = match cond_opt with
-        | Some cond -> cond
-        (* TODO(dlsmith): The line number here is approximate. How is error
-           reporting generally handled when desugaring? *)
-        | None -> Literal (True, LineNumber line)
-        in
+        let cond =
+            match cond_opt with
+            | Some cond -> cond
+            (* TODO(dlsmith): The line number here is approximate. How is error
+            reporting generally handled when desugaring? *)
+            | None -> Literal (True, LineNumber line) in
 
         let body = While (cond, body) in
 
         (* Run initializer before beginning loop. *)
-        let body = match init_opt with
-        | Some init -> Block [init; body]
-        | None -> body
-        in
+        let body =
+            match init_opt with
+            | Some init -> Block [init; body]
+            | None -> body in
 
         Ok (body, tokens)
     | Some { token_type=Token.Print; _ } ->
@@ -307,10 +303,10 @@ and parse_statement tokens =
         Ok (Print expr, tokens)
     | Some { token_type=Token.Return; _} ->
         let tokens = Util.tail tokens in
-        let* return_value, tokens = match peek tokens with
-        | Some Token.Semicolon -> Ok (None, tokens)
-        | _ -> parse_expression tokens |> to_opt_parse
-        in
+        let* return_value, tokens =
+            match peek tokens with
+            | Some Token.Semicolon -> Ok (None, tokens)
+            | _ -> parse_expression tokens |> to_opt_parse in
         let* tokens = expect Token.Semicolon "after return value." tokens in
         Ok (Return return_value, tokens)
     | Some { token_type=Token.If; _ } ->
@@ -390,8 +386,8 @@ let rec parse_program tokens =
     match tokens with
     | [ Token.{ token_type=EOF; _ } ] -> []
     | tokens ->
-        let stmt_result, tokens = match parse_declaration tokens with
-        | Ok (stmt, tokens) -> Ok stmt, tokens
-        | Error (message, tokens) -> Error message, (synchronize tokens)
-        in
+        let stmt_result, tokens =
+            match parse_declaration tokens with
+            | Ok (stmt, tokens) -> Ok stmt, tokens
+            | Error (message, tokens) -> Error message, (synchronize tokens) in
         stmt_result :: (parse_program tokens)

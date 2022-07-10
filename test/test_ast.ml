@@ -28,8 +28,7 @@ let test_to_sexp () =
                         LineNumber 0
                     ),
                 Literal (True, LineNumber 0),
-                LineNumber 0)
-        in
+                LineNumber 0) in
     Alcotest.(check string)
         "Same string"
         expected

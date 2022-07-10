@@ -170,8 +170,7 @@ let scan_and_extract_token source pos =
     let token_type_result, pos =
         match scan_token source pos with
         | Ok (token_type, pos) -> Ok token_type, pos
-        | Error (message, pos) -> Error message, pos
-    in
+        | Error (message, pos) -> Error message, pos in
     token_type_result
     |> Result.map (fun tt -> Token.{ token_type=tt; line=pos.line })
     |> result_attach (update_start pos)

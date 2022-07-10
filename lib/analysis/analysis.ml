@@ -45,6 +45,5 @@ let analyze_return (stmts: statement list) : (statement, string) result list =
 
     let apply_analyze stmt =
         analyze_stmt stmt
-        |> Result.map (fun () -> stmt)
-    in
+        |> Result.map (fun () -> stmt) in
     List.map apply_analyze stmts

@@ -90,18 +90,19 @@ let rec evaluate_expression env expr =
         Ok (env, Number (Unix.gettimeofday ()))
     | Call (callee_expr, arg_exprs, LineNumber line) ->
         let* env, callee = evaluate_expression env callee_expr in
-        let* fun_env, name_opt, params, body = match callee with
-        | Function (env, name_opt, params, body) ->
-            let num_params = List.length params in
-            let num_args = List.length arg_exprs in
-            if num_params == num_args then
-                Ok (env, name_opt, params, body)
-            else
-                let message = Printf.sprintf
-                    "Expected %d arguments but got %d" num_params num_args in
-                error message line
-        | _ -> error "Can only call functions and classes." line
-        in
+        let* fun_env, name_opt, params, body =
+            match callee with
+            | Function (env, name_opt, params, body) ->
+                let num_params = List.length params in
+                let num_args = List.length arg_exprs in
+                if num_params == num_args then
+                    Ok (env, name_opt, params, body)
+                else
+                    let message = Printf.sprintf
+                        "Expected %d arguments but got %d"
+                        num_params num_args in
+                    error message line
+            | _ -> error "Can only call functions and classes." line in
 
         (* Evaluate arg expressions with the environment at the call site. *)
         let* env, args = fold_left_map evaluate_expression env arg_exprs in
@@ -114,15 +115,14 @@ let rec evaluate_expression env expr =
                 Env.define
                 (Env.make ~parent:(Some (ref fun_env)))
                 params
-                args
-        in
+                args in
 
         (* If the function is named, add it to the call environment to enable
            recursion. *)
-        let call_env = match name_opt with
-        | Some name -> set_with_closure call_env name params body
-        | None -> call_env
-        in
+        let call_env =
+            match name_opt with
+            | Some name -> set_with_closure call_env name params body
+            | None -> call_env in
 
         (* The only thing we want to preserve from the call is an explicit
            return value. Otherwise, we resume with parent environment. *)
@@ -228,10 +228,10 @@ and evaluate_statement env stmt =
         let env = set_with_closure env name params body in
         ER.Ok (env, Nil)
     | VariableDeclaration (name, init_expr) ->
-        let* env, value = match init_expr with
-        | Some expr -> evaluate_expression env expr |> ER.of_result
-        | None -> ER.Ok (env, Nil)
-        in
+        let* env, value =
+            match init_expr with
+            | Some expr -> evaluate_expression env expr |> ER.of_result
+            | None -> ER.Ok (env, Nil) in
         ER.Ok (Env.define env name value, Nil)
 
 and evaluate_statements env = function
