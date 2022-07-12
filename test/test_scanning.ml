@@ -151,7 +151,12 @@ let test_no_change_after_EOF () =
 
 let test_multi_token_scan () =
     let source =
-        "var v = 1.2;\n\n// Check.\nif (v >= 0) {\n\tprint \"t\";\n}" in
+        "var v = 1.2;
+
+        // Check.
+        if (v >= 0) {
+            print \"t\";
+        }" in
     let open Token in
     let expected_tokens = [
         { token_type=Var; line=0; };
