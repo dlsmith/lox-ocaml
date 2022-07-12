@@ -20,5 +20,5 @@ let rec map_or_error f = function
     | [] -> Ok ()
     | [x] -> f x
     | x :: xs ->
-        let* _ = f  x in
+        let* _ = f x in
         map_or_error f xs
