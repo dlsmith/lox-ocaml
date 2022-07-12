@@ -4,6 +4,11 @@
  (libraries interpreter ast))
 
 (library
+ (name interpreter)
+ (modules interpreter)
+ (libraries scanning ast parsing analysis evaluation))
+
+(library
  (name token)
  (modules token)
  (preprocess

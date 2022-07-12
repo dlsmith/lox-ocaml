@@ -23,9 +23,3 @@ let run env source =
         |> List.map Util.get_ok
         |> Evaluation.(evaluate_program env)
     with Invalid_argument message -> Error message
-
-let report line where message =
-    Printf.printf "[line %i] Error %s: %s" line where message
-
-let error line message =
-    report line "" message

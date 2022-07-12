@@ -6,7 +6,3 @@ val run :
     env_of_literals ->
         string ->
             (env_of_literals * Ast.literal, string) result
-
-val report : int -> string -> string -> unit
-
-val error : int -> string -> unit
