@@ -1,6 +1,6 @@
 # TODO
 
-- [ ] Clean up tests by factoring out boilerplate
+- [x] Clean up tests by factoring out boilerplate
 - [ ] Surface all scanner/parser errors rather than only the first
 - [ ] Add line-level error reporting during parsing (we only now support it
   during evaluation).
