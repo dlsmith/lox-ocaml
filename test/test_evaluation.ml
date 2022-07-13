@@ -29,7 +29,7 @@ let test_set_in_parent_scope () =
     let parent = Env.make ~parent:None in
     let parent = Env.define parent "a" (Ast.String "parent") in
     let child = Env.make ~parent:(Some (ref parent)) in
-    let child = Env.set child "a" (Ast.String "child") |> Result.get_ok in
+    let child = Env.set child "a" (Ast.String "child") |> Util.get_ok in
     Alcotest.(check bool)
         "Child does not contain"
         false
@@ -41,7 +41,7 @@ let test_set_in_parent_scope () =
     Alcotest.(check literal_testable)
         "Parent contains value set via child"
         (Ast.String "child")
-        (Env.get parent "a" |> Result.get_ok)
+        (Env.get parent "a" |> Util.get_ok)
 
 let evaluate_expr source =
     let (let*) = Result.bind in
@@ -55,15 +55,17 @@ let evaluate_expr source =
         Evaluation.(evaluate_expression (Env.make ~parent:None) expr)
     | _ -> Error "Expected a single expression"
 
+let get_value eval_result =
+    eval_result
+    |> Util.get_ok
+    |> (fun (_, v) -> v)
+
 let test_evaluate_valid_expression () =
     let source = "1. + 2. > 0." in
     Alcotest.(check literal_testable)
         "Same value"
         Ast.True
-        (source
-        |> evaluate_expr
-        |> Util.get_ok
-        |> (fun (_, v) -> v))
+        (source |> evaluate_expr |> get_value)
 
 let test_evaluate_invalid_negation () =
     let source = "-\"hello\"" in
@@ -91,10 +93,7 @@ let test_logical_and () =
     Alcotest.(check literal_testable)
         "Produces second value"
         (Ast.String "second")
-        (source
-        |> evaluate_expr
-        |> Util.get_ok
-        |> (fun (_, v) -> v))
+        (source |> evaluate_expr |> get_value)
 
 let test_logical_and_short_circuits () =
     (* Evaluating the undefined variable would cause an error. *)
@@ -102,20 +101,14 @@ let test_logical_and_short_circuits () =
     Alcotest.(check literal_testable)
         "Produces first value"
         Ast.Nil
-        (source
-        |> evaluate_expr
-        |> Util.get_ok
-        |> (fun (_, v) -> v))
+        (source |> evaluate_expr |> get_value)
 
 let test_logical_or () =
     let source = "nil or \"second\"" in
     Alcotest.(check literal_testable)
         "Produces second value"
         (Ast.String "second")
-        (source
-        |> evaluate_expr
-        |> Util.get_ok
-        |> (fun (_, v) -> v))
+        (source |> evaluate_expr |> get_value)
 
 let test_logical_or_short_circuits () =
     (* Evaluating the undefined variable would cause an error. *)
@@ -123,10 +116,7 @@ let test_logical_or_short_circuits () =
     Alcotest.(check literal_testable)
         "Produces first value"
         (Ast.String "truthy")
-        (source
-        |> evaluate_expr
-        |> Util.get_ok
-        |> (fun (_, v) -> v))
+        (source |> evaluate_expr |> get_value)
 
 let run_interpreter source =
     let env = Env.make ~parent:None in
@@ -232,10 +222,10 @@ let test_closure () =
 
 let test_return_prohibited_outside_of_function () =
     let source = "return \"at top level\";" in
-    Alcotest.(check (result literal_testable string))
-        "Has error"
-        (Error "Can't return from top-level code.")
-        (source |> run_interpreter)
+    Alcotest.(check string)
+        "Same error"
+        "Can't return from top-level code."
+        (source |> run_interpreter |> Result.get_error)
 
 let test_simple_program_with_variable_declaration () =
     let source = "var a = \"one\" + \"two\"; a + \"three\";" in
@@ -248,7 +238,7 @@ let test_simple_program_with_variable_assignment () =
     let source = "var a; a = 1.; a > 0.;" in
     Alcotest.(check literal_testable)
         "Same value"
-        (Ast.True)
+        Ast.True
         (source |> run_interpreter |> Util.get_ok)
 
 let test_outer_scope_is_preserved_during_shadowing () =
@@ -274,31 +264,31 @@ let test_inner_scope_decl_not_available_in_outer () =
 
 let test_final_value_not_returned_if_within_a_block () =
     let source = "{ 1 + 2; }" in
-    Alcotest.(check (result literal_testable string))
+    Alcotest.(check literal_testable)
         "Nil result"
-        (Ok Nil)
-        (source |> run_interpreter)
+        Nil
+        (source |> run_interpreter |> Util.get_ok)
 
 let test_multiple_child_scopes () =
     let source = "var a = 1.; { a = a + 1.; } { a = 2 * a; } a >= 4.;" in
-    Alcotest.(check (result literal_testable string))
+    Alcotest.(check literal_testable)
         "Expected value"
-        (Ok Ast.True)
-        (source |> run_interpreter)
+        Ast.True
+        (source |> run_interpreter |> Util.get_ok)
 
 let test_else_not_executed_for_true_condition () =
     let source = "var a = 3.; if (true) a = a * 5.; else a = a + 1.; a;" in
-    Alcotest.(check (result literal_testable string))
+    Alcotest.(check literal_testable)
         "Expected value"
-        (Ok (Ast.Number 15.))
-        (source |> run_interpreter)
+        (Ast.Number 15.)
+        (source |> run_interpreter |> Util.get_ok)
 
 let test_simple_program_with_while_loop () =
     let source = "var a = 0.; while (a < 5.) a = a + 1.; a;" in
-    Alcotest.(check (result literal_testable string))
+    Alcotest.(check literal_testable)
         "Expected value"
-        (Ok (Ast.Number 5.))
-        (source |> run_interpreter)
+        (Ast.Number 5.)
+        (source |> run_interpreter |> Util.get_ok)
 
 let test_for_iter_var_not_accessible_outside_loop () =
     let source = "
@@ -306,10 +296,10 @@ let test_for_iter_var_not_accessible_outside_loop () =
             i;
         }
         i;" in
-    Alcotest.(check (result literal_testable string))
-        "Expected error"
-        (Error "[line 4] Error: Undefined variable 'i'.")
-        (source |> run_interpreter)
+    Alcotest.(check string)
+        "Same error"
+        "[line 4] Error: Undefined variable 'i'."
+        (source |> run_interpreter |> Result.get_error)
 
 let () =
     Alcotest.run "Evaluation test suite"
