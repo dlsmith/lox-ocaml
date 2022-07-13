@@ -9,17 +9,14 @@ let anon_fun path =
     | [] -> input_paths := path :: !input_paths
     | _ :: _ -> raise (Arg.Bad "Expected at most one positional argument")
 
-let handle_result result =
-    match result with
-    | Ok output ->
-        let _ = Option.map print_endline output in
-        exit(0)
-    | Error message ->
-        print_endline message; exit(65)
-
 let () =
     Arg.parse speclist anon_fun usage_msg;
     match List.hd !input_paths with
-    | path -> path |> Entrypoint.interpret_file |> handle_result
+    | path ->
+        begin match path |> Entrypoint.interpret_file |> Util.concat_errors with
+        | Ok output -> let _ = Option.map print_endline output in exit(0)
+        | Error message -> print_endline message; exit(65)
+        end
     | exception Failure _ ->
-        Entrypoint.interpret_interactive () |> handle_result
+        Entrypoint.interpret_interactive ();
+        exit(0)

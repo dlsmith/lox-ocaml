@@ -18,7 +18,7 @@ let interpret_interactive () =
         print_string "> ";
         try
             let line = read_line() in
-            match Interpreter.run env line with
+            match Interpreter.run env line |> Util.concat_errors with
             | Ok (updated_env, output) ->
                 let print_literal = fun value ->
                     print_endline (Ast.literal_to_string value) in
@@ -28,7 +28,7 @@ let interpret_interactive () =
                 print_endline message;
                 interpret_user_input env
         with End_of_file ->
-            Ok None
+            ()
     in
 
     interpret_user_input (Env.make ~parent:None)

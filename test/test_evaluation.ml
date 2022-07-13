@@ -45,11 +45,13 @@ let test_set_in_parent_scope () =
 
 let evaluate_expr source =
     let (let*) = Result.bind in
-    let* tokens = Interpreter.scan_or_error source in
+
+    let* tokens = Interpreter.scan_or_error source |> Util.concat_errors in
+
     let* expr, rest_tokens =
         Parsing.parse_expression tokens
-        (* TODO(dlsmith): Surface all errors. *)
         |> Result.map_error (fun (message, _) -> message) in
+
     match rest_tokens with
     | [ { token_type=Token.EOF; _} ] ->
         Evaluation.(evaluate_expression (Env.make ~parent:None) expr)
@@ -120,7 +122,7 @@ let test_logical_or_short_circuits () =
 
 let run_interpreter source =
     let env = Env.make ~parent:None in
-    match Interpreter.run env source with
+    match Interpreter.run env source |> Util.concat_errors with
     | Ok (_env, value) -> Ok value
     | Error _ as e -> e
 
@@ -301,6 +303,23 @@ let test_for_iter_var_not_accessible_outside_loop () =
         "[line 4] Error: Undefined variable 'i'."
         (source |> run_interpreter |> Result.get_error)
 
+let test_run_returns_multiple_errors () =
+    let expected_errors = [
+        "Expect ')' after expression.";
+        "Invalid assignment target.";
+    ] in
+    let source = "
+        var a = (1 + 2;
+        var b = \"value\";
+        1 + 2 = b;" in
+    match Interpreter.run (Env.make ~parent:None) source with
+    | Error messages ->
+        Alcotest.(check (list string))
+            "Same errors"
+            expected_errors
+            messages
+    | _ -> Alcotest.fail "Expected parsing errors"
+
 let () =
     Alcotest.run "Evaluation test suite"
         [
@@ -429,5 +448,9 @@ let () =
                     "For iter var is not accessible outside loop"
                     `Quick
                     test_for_iter_var_not_accessible_outside_loop;
+                Alcotest.test_case
+                    "Top-level run returns multiple errors"
+                    `Quick
+                    test_run_returns_multiple_errors;
             ]);
         ]

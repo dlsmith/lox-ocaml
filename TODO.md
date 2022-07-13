@@ -1,9 +1,9 @@
 # TODO
 
 - [x] Clean up tests by factoring out boilerplate
-- [ ] Surface all scanner/parser errors rather than only the first
-- [ ] Add line-level error reporting during parsing (we only now support it
-  during evaluation).
+- [x] Surface all scanner/parser errors rather than only the first
+- [ ] Add line information to error reporting during scanning and parsing (we
+  only now support it during evaluation).
 - [ ] Be more consistent and useful with `Alcotest` assertion strings. Things
   like "same value" are not useful.
 - [ ] `Env` without refs/mutability?
