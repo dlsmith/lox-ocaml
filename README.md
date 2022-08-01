@@ -1,7 +1,6 @@
 # lox-ocaml
 
 A tree-walk interpreter for the Lox language, roughly following the `jlox`
-implementation from [Crafting Interpreters][craft-interp]. Also a starter
-project for learning OCaml, so style is unlikely to be idiomatic.
+implementation from [Crafting Interpreters][craft-interp].
 
 [craft-interp]: https://www.craftinginterpreters.com/
